@@ -1,0 +1,23 @@
+# Backup and autosave files
+guider_processing_system/*_autosave-*.kicad_sch
+guider_processing_system/*.bak
+guider_processing_system/*-bak
+guider_processing_system/#auto_saved_files#/
+
+# Ignore backup folder
+guider_processing_system/guider_processing_system-backups/
+
+# KiCad cache and library tables
+guider_processing_system/fp-info-cache
+guider_processing_system/sym-lib-table
+guider_processing_system/fp-lib-table
+
+# Temporary files
+guider_processing_system/*.emp
+guider_processing_system/*.tmp
+guider_processing_system/*.temp
+guider_processing_system/*.log
+
+# Editor swap files
+guider_processing_system/.*.swp
+guider_processing_system/.*.swo
