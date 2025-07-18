@@ -3,6 +3,8 @@
 Setup docker:
 <pre>
 sudo apt install -y docker.io
+sudo usermod -aG docker $USER
+exec su -l $USER
 docker pull --platform linux/arm64 debian:11
 </pre>
 

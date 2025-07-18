@@ -1,11 +1,12 @@
 #!/bin/bash
 
 # Windows path to your project folder (adjust accordingly)
-LOCAL_DIR="/mnt/d/TelescopeGuiderV2"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_DIR="$SCRIPT_DIR"
 
 # Orange Pi user and IP address
 REMOTE_USER="orangepi"
-REMOTE_HOST="192.168.1.140"
+REMOTE_HOST="192.168.1.62"
 
 # Remote directory on Orange Pi
 REMOTE_DIR="/home/orangepi"
@@ -16,6 +17,7 @@ rsync -avz --delete \
   --include 'webServer/' \
   --include 'webServer/dist/***' \
   --exclude 'webServer/**' \
+  --exclude '.git/**' \
   "$LOCAL_DIR" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR"
 
 if [ $? -eq 0 ]; then

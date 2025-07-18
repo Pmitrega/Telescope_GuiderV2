@@ -1,6 +1,9 @@
 #!/bin/bash
 
-PROJECT_DIR="/mnt/d/TelescopeGuiderV2"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+PROJECT_DIR="$SCRIPT_DIR"
 CONTAINER_NAME="Guider_build_container"
 IMAGE_NAME="debian:11"
 

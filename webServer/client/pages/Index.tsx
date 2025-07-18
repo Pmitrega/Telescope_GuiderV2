@@ -93,6 +93,8 @@ export default function Index() {
   const [imageBuffer, setImageBuffer] = useState([]);
   const [selectedFormat, setSelectedFormat] = useState("jpeg");
 
+  const deviceIP = window.location.hostname;
+
   useEffect(() => {
     handleSetup();
   }, [cameraImageType]);
@@ -122,8 +124,8 @@ export default function Index() {
     }
 
     try {
-      const client = mqtt.connect("ws://192.168.1.140:9001");
-
+      const client = mqtt.connect(`ws://${deviceIP}:9001`);
+      
       client.on("connect", () => {
         console.log("MQTT connected");
         client.subscribe("/guider/image_png", (err) => {
