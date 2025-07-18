@@ -1,0 +1,8 @@
+FROM debian:11
+
+RUN apt update && apt install -y \
+    cmake \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /project
