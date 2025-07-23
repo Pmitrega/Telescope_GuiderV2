@@ -9,14 +9,19 @@
 int main(){
     cameraControl cam_ctrl;
     cam_ctrl.scanForCameras();
-    cam_ctrl.openFirstAvaible();
+    if(cam_ctrl.openFirstAvaible() == -1){
+        std::cout << "Failed to open" << std::endl;
+        return -1;
+    }
+    auto cam_info = cam_ctrl.getCurrentCameraInfo();
     cameraSetup cam_setup;
-    cam_setup.img_data_type = RGB24;
-    cam_setup.exposure_us = 2'000'000;
-    cam_setup.interval_ms = 200;
-    cam_setup.gain = 200;
+    cam_setup.img_data_type =  cam_info.img_data_types[0];
+    cam_setup.exposure_us = 100'000;
+    cam_setup.interval_ms = 100;
+    cam_setup.gain = 50;
     cam_ctrl.setupCamera(cam_setup);
-    ImageInfo im_info = {0, 1280, 960, RGB24, NONE};
+    std::cout << cam_info.y_res << " " << cam_info.x_res << std::endl;
+    ImageInfo im_info = {0, cam_info.x_res, cam_info.y_res, cam_setup.img_data_type, NONE};
     cam_ctrl.startVideo();
     senderReader senderReader(im_info);
     while(true){
@@ -29,7 +34,7 @@ int main(){
 
         if(senderReader.newSetupRequested(&cam_setup) == true){
             cam_ctrl.stopVideo();
-            ImageInfo im_info = {0, 1280, 960, cam_setup.img_data_type, NONE};
+            ImageInfo im_info = {0,  cam_info.x_res, cam_info.y_res, cam_setup.img_data_type, NONE};
             senderReader.modifyBufferSize(im_info);
             cam_ctrl.setupCamera(cam_setup);
             cam_ctrl.startVideo();

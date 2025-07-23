@@ -32,11 +32,14 @@ class cameraControl{
     int startVideo();
     int stopVideo();
     const uint8_t* getImageBuffer();
+    cameraInfo getCurrentCameraInfo();
   private:
     /*SVB SPECIFIC*/
     int SVB_ScanForCameras();
     int SVB_applySetup(const cameraSetup& cam_setup);
     /*ZWO SPECIFIC*/
+    int ZWO_ScanForCameras();
+    int ASI_applySetup(const cameraSetup& cam_setup);
     //-----------
     /*REST*/
     std::thread m_capture_video_thread;

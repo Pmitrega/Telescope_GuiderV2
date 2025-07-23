@@ -50,6 +50,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(CaptureAndShare
     PRIVATE
     "${LIB_DIR}/libSVBCameraSDK.so"
+    "${LIB_DIR}/libASICamera2.so"
     "${LIB_DIR}/libusb-1.0.so"
     rt  # add this line
     Threads::Threads

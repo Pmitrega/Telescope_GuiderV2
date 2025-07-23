@@ -1,0 +1,14 @@
+[Unit]
+Description=ImageTransmit Python Script
+After=captureAndShare.service
+Requires=captureAndShare.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c "sleep 1; /usr/bin/python3 /home/orangepi/Telescope_GuiderV2/imageTransmit/imageTransmit.py"
+Restart=always
+WorkingDirectory=/home/orangepi/Telescope_GuiderV2/imageTransmit/
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=multi-user.target

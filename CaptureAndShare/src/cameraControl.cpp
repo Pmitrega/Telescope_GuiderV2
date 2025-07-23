@@ -1,5 +1,6 @@
 #include <cameraControl.hpp>
 #include "SVBCameraSDK.h"
+#include "ASICamera2.h"
 #include <iostream>
 #include <algorithm> // for std::find
 
@@ -21,6 +22,16 @@ constexpr ImageBayerPattern getBayerFromSVBBayer(SVB_BAYER_PATTERN pattern){
     }
 }
 
+constexpr ImageBayerPattern getImageBayerFromASI(ASI_BAYER_PATTERN pattern) {
+    switch (pattern) {
+        case ASI_BAYER_RG: return RGGB;
+        case ASI_BAYER_BG: return BGGR;
+        case ASI_BAYER_GR: return GRBG;
+        case ASI_BAYER_GB: return GRBG;
+        default: return UNKNOWN_PATT;  // or static_assert(false, "Invalid Bayer pattern");
+    }
+}
+
 constexpr ImageDataType getImageTypeFromSVBImageType(SVB_IMG_TYPE type){
     switch (type)
     {
@@ -32,6 +43,28 @@ constexpr ImageDataType getImageTypeFromSVBImageType(SVB_IMG_TYPE type){
         default:    return UNKNOWN_DATA_TYPE; // or throw/handle invalid enum
     }
 }
+
+constexpr ImageDataType getImageDataTypeFromASI(ASI_IMG_TYPE type) {
+    switch (type) {
+        case ASI_IMG_RAW8:  return RAW8;
+        case ASI_IMG_RAW16: return RAW16;
+        case ASI_IMG_RGB24: return RGB24;
+        case ASI_IMG_Y8:    return Y8;
+        default:           return UNKNOWN_DATA_TYPE; // or handle error
+    }
+}
+
+constexpr ASI_IMG_TYPE getASIImageTypeFromImageDataType(ImageDataType type) {
+    switch (type) {
+        case RAW8:  return ASI_IMG_RAW8;
+        case RAW16: return ASI_IMG_RAW16;
+        case RGB24: return ASI_IMG_RGB24;
+        case Y8:    return ASI_IMG_Y8;
+        // Note: no ASI_IMG_Y16 in your enum, so omit or handle differently
+        default:    return ASI_IMG_END; // or another invalid/unknown enum value
+    }
+}
+
 
 constexpr SVB_IMG_TYPE getSVBImageTypeFromImageDataType(ImageDataType type) {
     switch (type)
@@ -49,12 +82,13 @@ cameraControl::cameraControl(){
     }
 
 int cameraControl::scanForCameras(){
-    int ret_val = -1;
-    m_scanedCameras.clear();
-    /*Scan for SVBONY CAMERAS*/
-    ret_val = SVB_ScanForCameras();
-    /*Scan for ZWO CAMERAS*/
-    return ret_val;
+        int ret_val = -1;
+        m_scanedCameras.clear();
+        /*Scan for SVBONY CAMERAS*/
+        ret_val = SVB_ScanForCameras();
+        /*Scan for ZWO CAMERAS*/
+        ret_val = ZWO_ScanForCameras();
+        return ret_val;
     }
 
 int cameraControl::openFirstAvaible(){
@@ -76,7 +110,17 @@ int cameraControl::openFirstAvaible(){
 
         }
         else if(cam.producer == "ZWO"){
-            /*TODO*/
+            if(ASIOpenCamera(cam.ID) != ASI_SUCCESS){
+                std::cerr << "Open camera failed: \r\n" << cam.cameraName;
+                return -1;
+            }
+            if(ASIInitCamera(cam.ID)!= ASI_SUCCESS){
+                std::cerr << "Open camera failed: \r\n" << cam.cameraName;
+                return -1;
+            }
+            m_current_camera = cam;
+            m_camera_opened = true;
+            return 0;
         }
         else{
             m_current_camera.producer = "NONE";
@@ -89,6 +133,9 @@ int cameraControl::openFirstAvaible(){
     }
 }
 
+cameraInfo cameraControl::getCurrentCameraInfo(){
+    return m_current_camera;
+}
 
 int  cameraControl::setupCamera(cameraSetup cam_setup){
     std::cout << "trying to setup camera" << std::endl;
@@ -103,15 +150,21 @@ int  cameraControl::setupCamera(cameraSetup cam_setup){
     else{
         m_ms_per_frame = cam_setup.interval_ms;
     }
-
     if(m_camera_opened == false){
         std::cerr << "No camera is no opened, can't setup.\r\n" << std::endl;
         return -1;
     }
+
+
     if(m_current_camera.producer == "SVB"){
         SVBSetCameraMode(m_current_camera.ID, SVB_MODE_NORMAL);
         SVB_applySetup(cam_setup);
     }
+    else if(m_current_camera.producer == "ZWO"){
+        ASI_applySetup(cam_setup);
+
+    }
+
     return 0;
 }
 
@@ -141,26 +194,50 @@ const uint8_t* cameraControl::getImageBuffer(){
     }
 }
 void cameraControl::captureVideoThreadFunc(){
-    auto ret = SVBStartVideoCapture(m_current_camera.ID);
-    m_last_send_time = std::chrono::steady_clock::now();
-    if(ret != SVB_SUCCESS){
-        std::cerr << "couldn't open camera" << std::endl;
-    }
-    else{
-        std::cout <<m_current_camera.producer <<std::endl;
-        while(m_stop_video_thread == false){
-            scanForImage();
-            using namespace std::chrono;
-            bool should_send_frame = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count() > m_ms_per_frame;
-            if(m_new_img_in_buffer && should_send_frame){
-                m_new_img_ready = true;
-                m_new_img_in_buffer = false;
-                m_last_send_time = steady_clock::now();
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    if(m_current_camera.producer == "SVB"){
+        auto ret = SVBStartVideoCapture(m_current_camera.ID);
+        m_last_send_time = std::chrono::steady_clock::now();
+        if(ret != SVB_SUCCESS){
+            std::cerr << "couldn't open camera" << std::endl;
         }
+        else{
+            std::cout <<m_current_camera.producer <<std::endl;
+            while(m_stop_video_thread == false){
+                scanForImage();
+                using namespace std::chrono;
+                bool should_send_frame = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count() > m_ms_per_frame;
+                if(m_new_img_in_buffer && should_send_frame){
+                    m_new_img_ready = true;
+                    m_new_img_in_buffer = false;
+                    m_last_send_time = steady_clock::now();
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+        }
+        SVBStopVideoCapture(m_current_camera.ID);
     }
-    SVBStopVideoCapture(m_current_camera.ID);
+    else if(m_current_camera.producer == "ZWO"){
+        auto ret = ASIStartVideoCapture(m_current_camera.ID);
+        m_last_send_time = std::chrono::steady_clock::now();
+        if(ret != ASI_SUCCESS){
+            std::cerr << "couldn't open camera" << std::endl;
+        }
+        else{
+            std::cout <<m_current_camera.producer <<std::endl;
+            while(m_stop_video_thread == false){
+                scanForImage();
+                using namespace std::chrono;
+                bool should_send_frame = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count() > m_ms_per_frame;
+                if(m_new_img_in_buffer && should_send_frame){
+                    m_new_img_ready = true;
+                    m_new_img_in_buffer = false;
+                    m_last_send_time = steady_clock::now();
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+        }
+        ASIStopVideoCapture(m_current_camera.ID);
+    }
 }
 
 int cameraControl::scanForImage(){
@@ -182,7 +259,19 @@ int cameraControl::scanForImage(){
             return -1;
         }
     }
-    else{
+    else if(m_current_camera.producer == "ZWO"){
+        auto ret = ASIGetVideoData(m_current_camera.ID, m_image_buffer, m_image_buffer_size, 100);
+        if(ret == ASI_SUCCESS){
+            m_new_img_in_buffer = true;
+        }
+        else if (ret == ASI_ERROR_TIMEOUT)
+        {
+            // std::cout << "Image timeout" << std::endl;
+        }
+        else{
+            std::cerr << "Could't read buffer, EC" << ret << std::endl;
+            return -1;
+        }
         // std::cerr << "Unknown producer" << m_current_camera.producer <<std::endl;
     }
     return 0;
@@ -287,11 +376,83 @@ int cameraControl::SVB_ScanForCameras(){
                     m_scanedCameras.back().exposure_range_us = std::make_pair<int,int>(caps.MinValue, caps.MaxValue);
                 }
             }
-            std::cout << m_scanedCameras.back() <<std::endl;
+            //std::cout << m_scanedCameras.back() <<std::endl;
             SVBCloseCamera(svb_cameraInfo.CameraID);
 		}
 	}
     return ret_val;
+}
+
+int cameraControl::ZWO_ScanForCameras(){
+    int connected_cameras = ASIGetNumOfConnectedCameras();
+    std::cout << "Detected " << connected_cameras << " ZWO Cameras" << std::endl;
+    ASI_CAMERA_INFO ppASICameraInfo;
+    /*
+    char Name[64]; //the name of the camera, you can display this to the UI
+	int CameraID; //this is used to control everything of the camera in other functions.Start from 0.
+	long MaxHeight; //the max height of the camera
+	long MaxWidth;	//the max width of the camera
+
+	ASI_BOOL IsColorCam; 
+	ASI_BAYER_PATTERN BayerPattern;
+    */
+        /*
+        struct cameraInfo{
+        std::string producer;
+        std::string cameraName;
+        int ID;
+        int x_res;
+        int y_res;
+        ImageBayerPattern bayer_patter;
+        std::vector<ImageDataType> img_data_types;
+        std::pair<int, int> gain_range;
+        std::pair<int, int> exposure_range_us;
+        bool mono;
+    };
+    */
+    for(int i = 0; i < connected_cameras; i++)
+        {
+            ASI_CONTROL_CAPS caps;           
+            ASIGetCameraProperty(&ppASICameraInfo, i);
+            cameraInfo cam_info = {"ZWO", "", -1, -1, -1, UNKNOWN_PATT, {}, {-1,-1}, {-1,-1}, true};
+            m_scanedCameras.push_back(cam_info);
+            std::string name(ppASICameraInfo.Name);
+            m_scanedCameras.back().cameraName = name;
+            m_scanedCameras.back().x_res = ppASICameraInfo.MaxWidth;
+            m_scanedCameras.back().y_res = ppASICameraInfo.MaxHeight;
+            m_scanedCameras.back().mono = !ppASICameraInfo.IsColorCam;
+            m_scanedCameras.back().ID = ppASICameraInfo.CameraID;
+            m_scanedCameras.back().bayer_patter = getImageBayerFromASI(ppASICameraInfo.BayerPattern);
+            for(int i = 0; i < 8; i++){
+                if(ppASICameraInfo.SupportedVideoFormat[i] == ASI_IMG_END){
+                    break;
+                } 
+                m_scanedCameras.back().img_data_types.push_back(getImageDataTypeFromASI(ppASICameraInfo.SupportedVideoFormat[i]));
+            }
+            ASI_ERROR_CODE ret;
+            ret = ASIOpenCamera(m_scanedCameras.back().ID);
+            if(ret!= ASI_SUCCESS){
+                std::cerr << "Failed to open camera" << std::endl;
+            }
+            ret = ASIInitCamera(m_scanedCameras.back().ID);
+            if(ret!= ASI_SUCCESS){
+                std::cerr << "Failed to init camera, rc=" << ret << std::endl;
+            }
+            int ctr_nums ;
+            ASIGetNumOfControls(m_scanedCameras.back().ID, &ctr_nums);
+            for(int i =0; i<ctr_nums; i++){
+                ret = ASIGetControlCaps(m_scanedCameras.back().ID, i, &caps);
+                if(caps.ControlType == ASI_EXPOSURE){
+                    m_scanedCameras.back().exposure_range_us = std::make_pair<int, int>((int)caps.MinValue, (int)caps.MaxValue);
+                }
+                if(caps.ControlType == ASI_GAIN){
+                    m_scanedCameras.back().gain_range = std::make_pair<int, int>((int)caps.MinValue, (int)caps.MaxValue);
+                }
+            } 
+            ASICloseCamera(m_scanedCameras.back().ID);
+            std::cout << m_scanedCameras.back();
+        }
+    return 0;
 }
 
 int cameraControl::SVB_applySetup(const cameraSetup& cam_setup){
@@ -307,6 +468,7 @@ int cameraControl::SVB_applySetup(const cameraSetup& cam_setup){
         }
         delete[] m_image_buffer;
         m_image_buffer_size = m_current_camera.x_res * m_current_camera.x_res * ImageDataTypeToBytes(cam_setup.img_data_type);
+        std::cout << "buffer_size: " << m_image_buffer_size << std::endl;
         m_image_buffer = new uint8_t[m_image_buffer_size];
     }
     else{
@@ -335,6 +497,64 @@ int cameraControl::SVB_applySetup(const cameraSetup& cam_setup){
     if(is_in_range){
         auto ret = SVBSetControlValue(m_current_camera.ID, SVB_GAIN, cam_setup.gain, SVB_FALSE);
         if(ret != SVB_SUCCESS){
+            std::cerr << "failed to set gain!! EC:" << ret <<std::endl;
+        }
+    }
+    else if(cam_setup.gain == -1){
+        /*do nothing*/
+    }
+    else{
+        std::cerr << "Gain out of range!!\r\n" << std::endl;
+        ret_val = -1;
+    }
+
+
+
+    return ret_val;
+}
+
+int cameraControl::ASI_applySetup(const cameraSetup& cam_setup){
+    /*Setup output type*/
+    int ret_val = 0;
+    bool type_av = std::find(m_current_camera.img_data_types.begin(), m_current_camera.img_data_types.end(), cam_setup.img_data_type)
+                            != m_current_camera.img_data_types.end();
+    if(type_av){
+        auto ASI_type = getASIImageTypeFromImageDataType(cam_setup.img_data_type);
+        auto ret = ASISetROIFormat(m_current_camera.ID, m_current_camera.x_res, m_current_camera.y_res, 1, ASI_type);
+        if(ret != ASI_SUCCESS){
+            std::cerr << "failed to set image type!! EC:" << ret <<std::endl;
+        }
+        delete[] m_image_buffer;
+        m_image_buffer_size = m_current_camera.x_res * m_current_camera.x_res * ImageDataTypeToBytes(cam_setup.img_data_type);
+        std::cout << "ASI buffer_size: " << m_image_buffer_size << std::endl;
+        m_image_buffer = new uint8_t[m_image_buffer_size];
+    }
+    else{
+        std::cerr << "Image type not avaiable\r\n" << std::endl;
+        ret_val = -1;
+    }
+
+    /** FIRST NEED TO CHANGE EXPOSURE TO CHANGE GAIN ----------------- OMGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG */
+    bool is_in_range = cam_setup.exposure_us >= m_current_camera.exposure_range_us.first && cam_setup.exposure_us <= m_current_camera.exposure_range_us.second;
+    if(is_in_range){
+        auto ret =ASISetControlValue(m_current_camera.ID, ASI_EXPOSURE, cam_setup.exposure_us, ASI_FALSE);
+        if(ret != ASI_SUCCESS){
+            std::cerr << "failed to set exposure!! EC:" << ret <<std::endl;
+        }
+    }
+    else if(cam_setup.gain == -1){
+        /*do nothing*/
+    }
+    else{
+        std::cerr << "Exposure out of range!\r\n" << std::endl;
+        ret_val = -1;
+    }
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    is_in_range = cam_setup.gain >= m_current_camera.gain_range.first && cam_setup.gain <= m_current_camera.gain_range.second;
+    if(is_in_range){
+        auto ret = ASISetControlValue(m_current_camera.ID, ASI_GAIN, cam_setup.gain, ASI_FALSE);
+        if(ret != ASI_SUCCESS){
             std::cerr << "failed to set gain!! EC:" << ret <<std::endl;
         }
     }

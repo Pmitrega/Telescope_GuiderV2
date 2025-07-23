@@ -1,0 +1,13 @@
+[Unit]
+Description=CaptureAndShare Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/orangepi/Telescope_GuiderV2/build/CaptureAndShare
+Restart=always
+WorkingDirectory=/home/orangepi/Telescope_GuiderV2/build
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=multi-user.target
