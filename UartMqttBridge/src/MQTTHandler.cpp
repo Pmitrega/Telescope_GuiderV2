@@ -3,6 +3,8 @@
 #include "MQTTClient.h"
 #include <queue>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 #define ADDRESS     "tcp://localhost:1883"
 #define CLIENTID    "UartMqttBridge"
@@ -59,15 +61,33 @@ MQTTHandler::MQTTHandler(std::vector<MessFromMQTT>* from_mqtt_messages,
         MQTTClient_destroy(&m_mqtt_client);
     }
 
-    rc = MQTTClient_connect(m_mqtt_client, &conn_opts);
-    if( rc != MQTTCLIENT_SUCCESS){
-        std::cerr << "Falied to connect to mqtt"<<std::endl;
+    while (true) {
+        rc = MQTTClient_connect(m_mqtt_client, &conn_opts);
+        if (rc == MQTTCLIENT_SUCCESS) {
+            std::cout << "Connected to MQTT broker." << std::endl;
+            break;
+        } else {
+            std::cerr << "MQTT connection failed. Retrying in 2 seconds..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
     }
     MQTTClient_subscribe(m_mqtt_client, "guider/camera_controls", 0);
     std::cout << "Subscribed for guider/camera_controls" << std::endl;
 }
-void MQTTHandler::handleTransmission(){
+void MQTTHandler::publish(std::string topic, std::string payload){
+    MQTTClient_message pubmsg = MQTTClient_message_initializer;
+    MQTTClient_deliveryToken token;
 
+    pubmsg.payload = (void*)payload.c_str();
+    pubmsg.payloadlen = static_cast<int>(payload.length());
+    pubmsg.qos = 0;  // QoS 0
+    pubmsg.retained = 0;
+
+    int rc = MQTTClient_publishMessage(m_mqtt_client, topic.c_str(), &pubmsg, &token);
+    if (rc != MQTTCLIENT_SUCCESS) {
+        std::cerr << "Failed to publish message to topic " << topic
+                  << ", return code " << rc << std::endl;
+    }
 }
 
 int MQTTHandler::handleReceive(MqttMessage* mqtt_msg){

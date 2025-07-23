@@ -10,6 +10,9 @@
 #include <thread>
 #include <chrono>
 
+#define LOOP_SLEEP_MS 5
+#define UPDATE_MISC_IT_MAX (250/LOOP_SLEEP_MS)
+
 void initializeMessages(std::vector<MessFromMQTT>* mess_from_mqtt, std::vector<MessFromUART>* mess_from_uart) {
     // Initialize MQTT messages
     mess_from_mqtt->clear();
@@ -61,10 +64,12 @@ void destroyMessages(std::vector<MessFromMQTT>* mess_from_mqtt, std::vector<Mess
 }
 
 int main(){
+
+    uint64_t update_misc_it = 0;
     std::vector<MessFromMQTT> mess_from_MQTT;
     std::vector<MessFromUART> mess_from_UART;
     ShmHandler shmHandler;
-    
+    Misc_Info misc_info;
     initializeMessages(&mess_from_MQTT, &mess_from_UART);
     nlohmann::json j;
     // Example usage:
@@ -97,7 +102,16 @@ int main(){
             }
         }
         
-        
+        if(update_misc_it%UPDATE_MISC_IT_MAX == 0){
+            shmHandler.readMiscInfo(misc_info);
+            if(misc_info.updated == true){
+                std::string message = "{ \"curr_expo\": " + std::to_string(misc_info.current_exposure_time) +
+                      ", \"final_expo\": " + std::to_string(misc_info.final_exposure_time) + " }";
+                mqtt_hander.publish("guider/exposure_status", message);
+            }
+        }
+
+        update_misc_it +=1;
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     // Destroy all semaphores and mutexes before exit

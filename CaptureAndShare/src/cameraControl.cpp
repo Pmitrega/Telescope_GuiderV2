@@ -3,7 +3,7 @@
 #include "ASICamera2.h"
 #include <iostream>
 #include <algorithm> // for std::find
-
+#include <utility>
 /*
     BGGR, 
     RGBG,
@@ -137,6 +137,10 @@ cameraInfo cameraControl::getCurrentCameraInfo(){
     return m_current_camera;
 }
 
+const cameraSetup cameraControl::getCameraSetup(){
+    return m_current_camera_setup;
+}
+
 int  cameraControl::setupCamera(cameraSetup cam_setup){
     std::cout << "trying to setup camera" << std::endl;
     std::cout << "Exposure: " <<  cam_setup.exposure_us << std::endl;
@@ -146,9 +150,11 @@ int  cameraControl::setupCamera(cameraSetup cam_setup){
     
     if(cam_setup.interval_ms < cam_setup.exposure_us/1000){
         m_ms_per_frame = static_cast<int>(cam_setup.exposure_us/1000);
+        m_current_camera_setup.interval_ms = m_ms_per_frame; 
     }
     else{
         m_ms_per_frame = cam_setup.interval_ms;
+        m_current_camera_setup.interval_ms = m_ms_per_frame; 
     }
     if(m_camera_opened == false){
         std::cerr << "No camera is no opened, can't setup.\r\n" << std::endl;
@@ -206,6 +212,16 @@ void cameraControl::captureVideoThreadFunc(){
                 scanForImage();
                 using namespace std::chrono;
                 bool should_send_frame = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count() > m_ms_per_frame;
+                m_capture_progress.first = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count();
+                
+                if (m_ms_per_frame < 500){
+                    m_capture_progress.second = -1;
+                    m_capture_progress.first = -1;
+                }
+                else{
+                    m_capture_progress.first = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count();
+                    m_capture_progress.second = m_ms_per_frame;
+                }
                 if(m_new_img_in_buffer && should_send_frame){
                     m_new_img_ready = true;
                     m_new_img_in_buffer = false;
@@ -228,6 +244,14 @@ void cameraControl::captureVideoThreadFunc(){
                 scanForImage();
                 using namespace std::chrono;
                 bool should_send_frame = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count() > m_ms_per_frame;
+                if (m_ms_per_frame < 500){
+                    m_capture_progress.second = -1;
+                    m_capture_progress.first = -1;
+                }
+                else{
+                    m_capture_progress.first = duration_cast<milliseconds>(steady_clock::now() - m_last_send_time).count();
+                    m_capture_progress.second = m_ms_per_frame;
+                }
                 if(m_new_img_in_buffer && should_send_frame){
                     m_new_img_ready = true;
                     m_new_img_in_buffer = false;
@@ -275,6 +299,11 @@ int cameraControl::scanForImage(){
         // std::cerr << "Unknown producer" << m_current_camera.producer <<std::endl;
     }
     return 0;
+}
+
+
+const std::pair<int,int> cameraControl::getExpsureStatus(){
+    return m_capture_progress;
 }
 
 
@@ -466,8 +495,13 @@ int cameraControl::SVB_applySetup(const cameraSetup& cam_setup){
         if(ret != SVB_SUCCESS){
             std::cerr << "failed to set image type!! EC:" << ret <<std::endl;
         }
+        else{
+            m_current_camera_setup.img_data_type = cam_setup.img_data_type;
+            m_current_camera_setup.ROI_x = std::make_pair<int, int>(0, static_cast<int>(m_current_camera.x_res));
+            m_current_camera_setup.ROI_y = std::make_pair<int, int>(0, static_cast<int>(m_current_camera.y_res));
+        }
         delete[] m_image_buffer;
-        m_image_buffer_size = m_current_camera.x_res * m_current_camera.x_res * ImageDataTypeToBytes(cam_setup.img_data_type);
+        m_image_buffer_size = m_current_camera.x_res * m_current_camera.x_res * ImageDataTypeToBytes(m_current_camera_setup.img_data_type);
         std::cout << "buffer_size: " << m_image_buffer_size << std::endl;
         m_image_buffer = new uint8_t[m_image_buffer_size];
     }
@@ -483,12 +517,17 @@ int cameraControl::SVB_applySetup(const cameraSetup& cam_setup){
         if(ret != SVB_SUCCESS){
             std::cerr << "failed to set exposure!! EC:" << ret <<std::endl;
         }
+        else{
+            m_current_camera_setup.exposure_us = cam_setup.exposure_us;
+        }
     }
-    else if(cam_setup.gain == -1){
+    else if(cam_setup.exposure_us == -1){
         /*do nothing*/
+        /*TODO - read exposure from  SVB camera*/
     }
     else{
         std::cerr << "Exposure out of range!\r\n" << std::endl;
+        /*TODO - read exposure from  SVB camera*/
         ret_val = -1;
     }
     
@@ -499,12 +538,17 @@ int cameraControl::SVB_applySetup(const cameraSetup& cam_setup){
         if(ret != SVB_SUCCESS){
             std::cerr << "failed to set gain!! EC:" << ret <<std::endl;
         }
+        else{
+            m_current_camera_setup.gain = cam_setup.gain;
+        }
     }
     else if(cam_setup.gain == -1){
         /*do nothing*/
+        /*TODO - read gain from  SVB camera*/
     }
     else{
         std::cerr << "Gain out of range!!\r\n" << std::endl;
+        /*TODO - read gain from  SVB camera*/
         ret_val = -1;
     }
 
@@ -524,6 +568,11 @@ int cameraControl::ASI_applySetup(const cameraSetup& cam_setup){
         if(ret != ASI_SUCCESS){
             std::cerr << "failed to set image type!! EC:" << ret <<std::endl;
         }
+        else{
+            m_current_camera_setup.img_data_type = cam_setup.img_data_type;
+            m_current_camera_setup.ROI_x = std::make_pair<int, int>(0, static_cast<int>(m_current_camera.x_res));
+            m_current_camera_setup.ROI_y = std::make_pair<int, int>(0, static_cast<int>(m_current_camera.y_res));
+        }
         delete[] m_image_buffer;
         m_image_buffer_size = m_current_camera.x_res * m_current_camera.x_res * ImageDataTypeToBytes(cam_setup.img_data_type);
         std::cout << "ASI buffer_size: " << m_image_buffer_size << std::endl;
@@ -541,12 +590,17 @@ int cameraControl::ASI_applySetup(const cameraSetup& cam_setup){
         if(ret != ASI_SUCCESS){
             std::cerr << "failed to set exposure!! EC:" << ret <<std::endl;
         }
+        else{
+            m_current_camera_setup.exposure_us = cam_setup.exposure_us;
+        }
     }
-    else if(cam_setup.gain == -1){
+    else if(cam_setup.exposure_us == -1){
         /*do nothing*/
+        /*TODO - read exposure from  ASI camera*/
     }
     else{
         std::cerr << "Exposure out of range!\r\n" << std::endl;
+        /*TODO - read exposure from  ASI camera*/
         ret_val = -1;
     }
     
@@ -557,12 +611,17 @@ int cameraControl::ASI_applySetup(const cameraSetup& cam_setup){
         if(ret != ASI_SUCCESS){
             std::cerr << "failed to set gain!! EC:" << ret <<std::endl;
         }
+        else{
+            m_current_camera_setup.gain = cam_setup.gain;
+        }
     }
     else if(cam_setup.gain == -1){
         /*do nothing*/
+        /*TODO - read gain from  ASI camera*/
     }
     else{
         std::cerr << "Gain out of range!!\r\n" << std::endl;
+        /*TODO - read gain from  ASI camera*/
         ret_val = -1;
     }
 

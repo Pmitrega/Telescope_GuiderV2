@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -92,8 +93,31 @@ export default function Index() {
   const lastPublishedSpeeds = useRef({ ra: 0, dec: 0 });
   const [imageBuffer, setImageBuffer] = useState([]);
   const [selectedFormat, setSelectedFormat] = useState("jpeg");
+  const [current_expo, setCurrentExpo] = useState(0);
+  const [total_expo, setTotalExpo] = useState(1000);
 
   const deviceIP = window.location.hostname;
+
+
+
+  const ProgressBar = ({ current_expo, total_expo }) => {
+    const percentage = Math.min(Math.floor((current_expo / total_expo) * 100), 100);
+        return (
+          <div className="w-full max-w-md">
+            <div className="relative w-full bg-gray-200 rounded-full h-6 overflow-hidden shadow-inner">
+              <div
+                className="bg-blue-500 h-full transition-all duration-300 ease-in-out"
+                style={{ width: `${percentage}%` }}
+              ></div>
+              <div className="absolute inset-0 flex items-center justify-center text-sm font-medium text-white">
+                 {current_expo} / {total_expo} ms
+              </div>
+            </div>
+          </div>
+        );
+    };
+
+
 
   useEffect(() => {
     handleSetup();
@@ -142,6 +166,13 @@ export default function Index() {
             console.log("Subscribed to /guider/image_jpg");
           }
         });
+        client.subscribe('guider/exposure_status', (err) => {
+          if (err) {
+            console.error("Failed to subscribe to guider/exposure_status", err);
+          } else {
+            console.log("Subscribed to guider/exposure_status");
+          }
+        });
       });
 
       client.on("message", (topic, message) => {
@@ -169,6 +200,17 @@ export default function Index() {
             setReceivedImage(imageUrl);
           } catch (error) {
             console.error("Error processing received image:", error);
+          }
+        }
+        if (topic === 'guider/exposure_status') {
+          try {
+            const data = JSON.parse(message.toString());
+            if (data.curr_expo !== undefined && data.final_expo !== undefined) {
+              setCurrentExpo(data.curr_expo);
+              setTotalExpo(data.final_expo);
+            }
+          } catch (e) {
+            console.error('Invalid JSON message:', e);
           }
         }
       });
@@ -1180,6 +1222,10 @@ useEffect(() => {
                 >
                   Setup
                 </Button>
+                <div className="p-4">
+                  <h1 className="mb-4 text-xl font-semibold">Progress</h1>
+                  <ProgressBar current_expo={current_expo} total_expo={total_expo} />
+                </div>
               </CardContent>
             </Card>
 

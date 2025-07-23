@@ -29,10 +29,13 @@ class cameraControl{
     int openFirstAvaible();
     int openByID(int ID);
     int setupCamera(cameraSetup cam_setup);
+    const cameraSetup getCameraSetup();
     int startVideo();
     int stopVideo();
     const uint8_t* getImageBuffer();
     cameraInfo getCurrentCameraInfo();
+
+    const std::pair<int,int> getExpsureStatus();
   private:
     /*SVB SPECIFIC*/
     int SVB_ScanForCameras();
@@ -46,6 +49,7 @@ class cameraControl{
     void captureVideoThreadFunc();
     bool m_stop_video_thread = false;
     int m_ms_per_frame = 200;
+    std::pair<int, int> m_capture_progress = {-1, -1};
     std::chrono::steady_clock::time_point m_last_send_time;
     int scanForImage();
     bool m_new_img_ready = false;
@@ -53,6 +57,7 @@ class cameraControl{
     std::vector<cameraInfo> m_scanedCameras;
     bool m_camera_opened = false;
     cameraInfo m_current_camera;
+    cameraSetup m_current_camera_setup;
     uint8_t* m_image_buffer = nullptr;
     int m_image_buffer_size = 0;
 };

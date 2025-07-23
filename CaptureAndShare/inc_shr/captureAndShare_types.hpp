@@ -8,6 +8,9 @@
 #define CAMERA_CONTROLS_SHM "/camera_setup"
 #define CAMERA_CONTROLS_SHM_FULL_PATH "/dev/shm" CAMERA_CONTROLS_SHM
 
+#define MISC_INFO_SHM "/misc_info"
+#define MISC_INFO_SHM_FULL_PATH "/dev/shm" MISC_INFO_SHM
+
 enum ImageDataType
 {
     RGB24 = 0,
@@ -72,6 +75,14 @@ struct SHM_cameraInfo
     int gain_max;
     int exposure_min;
     int exposure_max;
+};
+
+
+struct Misc_Info
+{
+    bool updated = false;
+    int current_exposure_time = -1;
+    int final_exposure_time = -1;
 };
 
 

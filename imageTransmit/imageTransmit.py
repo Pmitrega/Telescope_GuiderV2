@@ -53,6 +53,7 @@ def on_connect(client, userdata, flags, rc):
         print(f"Failed to connect, return code {rc}")
 
 client = mqtt.Client()
+client.max_queued_messages_set(4)
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
@@ -68,11 +69,10 @@ def read_image_from_shm(shm):
         # print(x_size, " ", y_size, " ", data_type)
         bytes_per_pixel = {0:3, 1:2, 2:1, 3:1, 4:2}[data_type]
         buffer_size = x_size * y_size * bytes_per_pixel
-
         raw_data = shm.read(buffer_size)
         if len(raw_data) != buffer_size:
             raise ValueError("Incomplete image data")
-
+        print("im size: ",x_size," ", y_size)
         if data_type == 0:  # RGB24
             image = np.frombuffer(raw_data, dtype=np.uint8).reshape((y_size, x_size, 3))
             # Assuming image is in BGR format
