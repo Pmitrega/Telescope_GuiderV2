@@ -57,6 +57,20 @@ struct SHM_cameraControls
     int roi_y_end;
 };
 
+enum videoSource{
+    CAMERA_0 = 0,
+    CAMERA_1,
+    CAMERA_2,
+    CAMERA_3,
+    CAMERA_4,
+    CAMERA_5,
+    CAMERA_6,
+    CAMERA_7,
+    CAMERA_8,
+    CAMERA_9,
+    TEST_STREAM = 255
+};
+
 struct cameraSetup{
     std::pair<int,int> ROI_x = std::make_pair<int,int>(-1,-1);
     std::pair<int,int> ROI_y = std::make_pair<int,int>(-1,-1);
@@ -110,6 +124,7 @@ constexpr char* BayerPatternToStr(ImageBayerPattern pattern) {
         default:   return (char*)"Unknown";
     }
 }
+
 
 constexpr char* ImageDataTypeToStr(ImageDataType type) {
     switch (type) {

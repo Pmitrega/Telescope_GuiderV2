@@ -102,20 +102,20 @@ export default function Index() {
 
   const ProgressBar = ({ current_expo, total_expo }) => {
     const percentage = Math.min(Math.floor((current_expo / total_expo) * 100), 100);
-        return (
-          <div className="w-full max-w-md">
-            <div className="relative w-full bg-gray-200 rounded-full h-6 overflow-hidden shadow-inner">
-              <div
-                className="bg-blue-500 h-full transition-all duration-300 ease-in-out"
-                style={{ width: `${percentage}%` }}
-              ></div>
-              <div className="absolute inset-0 flex items-center justify-center text-sm font-medium text-white">
-                 {current_expo} / {total_expo} ms
-              </div>
-            </div>
+    return (
+      <div className="w-full max-w-md">
+        <div className="relative w-full bg-gray-200 rounded-full h-6 overflow-hidden shadow-inner">
+          <div
+            className="bg-blue-500 h-full transition-all duration-300 ease-in-out"
+            style={{ width: `${percentage}%` }}
+          ></div>
+          <div className="absolute inset-0 flex items-center justify-center text-sm font-medium text-white">
+            {current_expo} / {total_expo} ms
           </div>
-        );
-    };
+        </div>
+      </div>
+    );
+  };
 
 
 
@@ -149,7 +149,7 @@ export default function Index() {
 
     try {
       const client = mqtt.connect(`ws://${deviceIP}:9001`);
-      
+
       client.on("connect", () => {
         console.log("MQTT connected");
         client.subscribe("/guider/image_png", (err) => {
@@ -193,7 +193,7 @@ export default function Index() {
             // Update image buffer (max 120)
             setImageBuffer(prevBuffer => {
               const newBuffer = [...prevBuffer, imageEntry];
-              if (newBuffer.length > 120) newBuffer.shift();
+              if (newBuffer.length > 360) newBuffer.shift();
               return newBuffer;
             });
 
@@ -260,56 +260,56 @@ export default function Index() {
   // }, []);
 
 
-useEffect(() => {
-  const canvas = canvasRef.current;
-  if (!canvas || !receivedImage) return;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !receivedImage) return;
 
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-  const img = new Image();
-  img.onload = () => {
-    imageSizeRef.current = { width: img.width, height: img.height };
+    const img = new Image();
+    img.onload = () => {
+      imageSizeRef.current = { width: img.width, height: img.height };
 
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
 
-    const scale = Math.min(canvasWidth / img.width, canvasHeight / img.height);
-    minZoomRef.current = scale;
+      const scale = Math.min(canvasWidth / img.width, canvasHeight / img.height);
+      minZoomRef.current = scale;
 
-    if (!initialSetupDoneRef.current) {
-      // First time only: set zoom & offset
-      const initialOffsetX = (canvasWidth - img.width * scale) / 2;
-      const initialOffsetY = (canvasHeight - img.height * scale) / 2;
+      if (!initialSetupDoneRef.current) {
+        // First time only: set zoom & offset
+        const initialOffsetX = (canvasWidth - img.width * scale) / 2;
+        const initialOffsetY = (canvasHeight - img.height * scale) / 2;
 
-      setZoom(scale);
-      setOffset({ x: initialOffsetX, y: initialOffsetY });
+        setZoom(scale);
+        setOffset({ x: initialOffsetX, y: initialOffsetY });
 
-      initialSetupDoneRef.current = true;
-    }
+        initialSetupDoneRef.current = true;
+      }
 
-    // Draw image
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
-    ctx.drawImage(img, 0, 0);
-    ctx.restore();
-  };
+      // Draw image
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
+    };
 
-  img.src = receivedImage;
+    img.src = receivedImage;
 
-// No cleanup resetting initialSetupDoneRef here!
-}, [receivedImage, zoom, offset]);
+    // No cleanup resetting initialSetupDoneRef here!
+  }, [receivedImage, zoom, offset]);
 
 
-useEffect(() => {
+  useEffect(() => {
     if (mqttClient?.connected) {
       mqttClient.publish("/guider/format", selectedFormat);
     }
     console.log("Published format")
   }, [selectedFormat, mqttClient]);
   // Draw grid and data points only when no image is received
-useEffect(() => {
+  useEffect(() => {
     if (receivedImage) return; // Don't draw grid if we have an image
 
     const canvas = canvasRef.current;
@@ -415,18 +415,18 @@ useEffect(() => {
   };
 
 
-    const downloadImages = async () => {
-      const zip = new JSZip();
+  const downloadImages = async () => {
+    const zip = new JSZip();
 
-      imageBuffer.forEach((img, index) => {
-        const base64 = img.dataUrl.split(",")[1];
-        const ext = img.format;
-        zip.file(`image_${index + 1}.${ext}`, base64, { base64: true });
-      });
+    imageBuffer.forEach((img, index) => {
+      const base64 = img.dataUrl.split(",")[1];
+      const ext = img.format;
+      zip.file(`image_${index + 1}.${ext}`, base64, { base64: true });
+    });
 
-      const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, "images.zip");
-    };
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, "images.zip");
+  };
   const handleSetup = () => {
     const now = Date.now();
 
@@ -458,108 +458,108 @@ useEffect(() => {
     lastSetupPublish.current = now;
   };
 
-const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-  const canvas = canvasRef.current;
-  if (!canvas) return;
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  const rect = canvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
 
-  // Adjust for CSS scaling
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+    // Adjust for CSS scaling
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
 
-  // Mouse position in canvas coordinate system (pixels)
-  const mouseX = (event.clientX - rect.left) * scaleX;
-  const mouseY = (event.clientY - rect.top) * scaleY;
+    // Mouse position in canvas coordinate system (pixels)
+    const mouseX = (event.clientX - rect.left) * scaleX;
+    const mouseY = (event.clientY - rect.top) * scaleY;
 
-  // Reverse zoom & offset transform to get original image coords
-  const imgX = (mouseX - offset.x) / zoom;
-  const imgY = (mouseY - offset.y) / zoom;
+    // Reverse zoom & offset transform to get original image coords
+    const imgX = (mouseX - offset.x) / zoom;
+    const imgY = (mouseY - offset.y) / zoom;
 
-  const { width, height } = imageSizeRef.current;
+    const { width, height } = imageSizeRef.current;
 
-  if (imgX >= 0 && imgX <= width && imgY >= 0 && imgY <= height) {
-    console.log(`Clicked on image at original coords: (${imgX.toFixed(2)}, ${imgY.toFixed(2)})`);
-  } else {
-    console.log("Clicked outside image boundaries");
-  }
-};
-
-const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-  e.preventDefault();
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
-
-  const zoomFactor = 0.1;
-  const delta = e.deltaY < 0 ? 1 + zoomFactor : 1 - zoomFactor;
-  const newZoom = Math.max(zoom * delta, minZoomRef.current); // limit zoom out
-
-  const newOffsetX = mouseX - (mouseX - offset.x) * (newZoom / zoom);
-  const newOffsetY = mouseY - (mouseY - offset.y) * (newZoom / zoom);
-
-  setZoom(newZoom);
-  setOffset({ x: newOffsetX, y: newOffsetY });
-};
-
-const handleResetZoom = () => {
-  const canvas = canvasRef.current;
-  if (!canvas || !receivedImage) return;
-
-  const img = new Image();
-  img.onload = () => {
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-    const scale = Math.min(canvasWidth / img.width, canvasHeight / img.height);
-    const offsetX = (canvasWidth - img.width * scale) / 2;
-    const offsetY = (canvasHeight - img.height * scale) / 2;
-
-    setZoom(scale);
-    setOffset({ x: offsetX, y: offsetY });
-  };
-  img.src = receivedImage;
-};
-
-
-useEffect(() => {
-  const interval = setInterval(() => {
-    const now = Date.now();
-
-    // Only publish if at least 100ms passed AND speeds changed
-    if (
-      now - lastMotorPublish.current >= 100 &&
-      (lastPublishedSpeeds.current.ra !== ra_speed_slider[0] ||
-       lastPublishedSpeeds.current.dec !== dec_speed_slider[0])
-    ) {
-      if (mqttClient && mqttClient.connected) {
-        const motorData = {
-          ra_speed: ra_speed_slider[0] || 0,
-          dec_speed: dec_speed_slider[0] || 0,
-        };
-        const jsonString = JSON.stringify(motorData);
-
-        mqttClient.publish("guider/motors", jsonString, (err) => {
-          if (err) {
-            console.error("Failed to publish motor speeds:", err);
-          } else {
-            console.log("Motor speeds published:", jsonString);
-          }
-        });
-
-        lastMotorPublish.current = now;
-        lastPublishedSpeeds.current = {
-          ra: ra_speed_slider[0],
-          dec: dec_speed_slider[0],
-        };
-      }
+    if (imgX >= 0 && imgX <= width && imgY >= 0 && imgY <= height) {
+      console.log(`Clicked on image at original coords: (${imgX.toFixed(2)}, ${imgY.toFixed(2)})`);
+    } else {
+      console.log("Clicked outside image boundaries");
     }
-  }, 100);
+  };
 
-  return () => clearInterval(interval);
-}, [ra_speed_slider, dec_speed_slider, mqttClient]);
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const zoomFactor = 0.1;
+    const delta = e.deltaY < 0 ? 1 + zoomFactor : 1 - zoomFactor;
+    const newZoom = Math.max(zoom * delta, minZoomRef.current); // limit zoom out
+
+    const newOffsetX = mouseX - (mouseX - offset.x) * (newZoom / zoom);
+    const newOffsetY = mouseY - (mouseY - offset.y) * (newZoom / zoom);
+
+    setZoom(newZoom);
+    setOffset({ x: newOffsetX, y: newOffsetY });
+  };
+
+  const handleResetZoom = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !receivedImage) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const scale = Math.min(canvasWidth / img.width, canvasHeight / img.height);
+      const offsetX = (canvasWidth - img.width * scale) / 2;
+      const offsetY = (canvasHeight - img.height * scale) / 2;
+
+      setZoom(scale);
+      setOffset({ x: offsetX, y: offsetY });
+    };
+    img.src = receivedImage;
+  };
+
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+
+      // Only publish if at least 100ms passed AND speeds changed
+      if (
+        now - lastMotorPublish.current >= 100 &&
+        (lastPublishedSpeeds.current.ra !== ra_speed_slider[0] ||
+          lastPublishedSpeeds.current.dec !== dec_speed_slider[0])
+      ) {
+        if (mqttClient && mqttClient.connected) {
+          const motorData = {
+            ra_speed: ra_speed_slider[0] || 0,
+            dec_speed: dec_speed_slider[0] || 0,
+          };
+          const jsonString = JSON.stringify(motorData);
+
+          mqttClient.publish("guider/motors", jsonString, (err) => {
+            if (err) {
+              console.error("Failed to publish motor speeds:", err);
+            } else {
+              console.log("Motor speeds published:", jsonString);
+            }
+          });
+
+          lastMotorPublish.current = now;
+          lastPublishedSpeeds.current = {
+            ra: ra_speed_slider[0],
+            dec: dec_speed_slider[0],
+          };
+        }
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [ra_speed_slider, dec_speed_slider, mqttClient]);
 
 
   const handleRASpeedChange = (value: number[]) => {
@@ -1027,27 +1027,25 @@ useEffect(() => {
                   </CardTitle>
                   <div className="flex items-center space-x-4">
                     <div className="text-xs text-gray-500">
-                            <button
-                            onClick={() => setSelectedFormat("jpg")}
-                            className={`px-3 py-1 text-xs rounded border ${
-                              selectedFormat === "jpg"
-                                ? "bg-blue-500 text-white"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                          >
-                            JPEG
-                          </button>
+                      <button
+                        onClick={() => setSelectedFormat("jpg")}
+                        className={`px-3 py-1 text-xs rounded border ${selectedFormat === "jpg"
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                      >
+                        JPEG
+                      </button>
 
-                          <button
-                            onClick={() => setSelectedFormat("png")}
-                            className={`px-3 py-1 text-xs rounded border ${
-                              selectedFormat === "png"
-                                ? "bg-blue-500 text-white"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                          >
-                            PNG
-                          </button>
+                      <button
+                        onClick={() => setSelectedFormat("png")}
+                        className={`px-3 py-1 text-xs rounded border ${selectedFormat === "png"
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                      >
+                        PNG
+                      </button>
                     </div>
                     <button
                       onClick={handleResetZoom}
@@ -1141,79 +1139,79 @@ useEffect(() => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Image Type</Label>
-                <select
-                  className="h-7 text-xs border-gray-300 rounded w-full"
-                  value={cameraImageType}
-                  onChange={(e) => setCameraImageType(parseInt(e.target.value))}
-                >
-                  <option value={0}>RGB24</option>
-                  <option value={1}>RAW16</option>
-                  <option value={2}>RAW8</option>
-                  <option value={3}>Y8</option>
-                  <option value={4}>Y16</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Gain</Label>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={cameraGain}
-                  onChange={(e) => setCameraGain(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
-                  className="h-7 text-xs border-gray-300"
-                  placeholder="150"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Exposure (ms)</Label>
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-600">Image Type</Label>
+                  <select
+                    className="h-7 text-xs border-gray-300 rounded w-full"
+                    value={cameraImageType}
+                    onChange={(e) => setCameraImageType(parseInt(e.target.value))}
+                  >
+                    <option value={0}>RGB24</option>
+                    <option value={1}>RAW16</option>
+                    <option value={2}>RAW8</option>
+                    <option value={3}>Y8</option>
+                    <option value={4}>Y16</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-600">Gain</Label>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={cameraGain}
+                    onChange={(e) => setCameraGain(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
+                    className="h-7 text-xs border-gray-300"
+                    placeholder="150"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-600">Exposure (ms)</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
                     pattern="[0-9.]*"
                     value={cameraExposure}
                     onChange={(e) => {
-                          const newExposure = e.target.value;
-                          setCameraExposure(newExposure);
+                      const newExposure = e.target.value;
+                      setCameraExposure(newExposure);
 
-                          const exposureMs = parseFloat(newExposure);
-                          const currentInterval = parseInt(cameraInterval) || 0;
+                      const exposureMs = parseFloat(newExposure);
+                      const currentInterval = parseInt(cameraInterval) || 0;
 
-                          if (!isNaN(exposureMs) && exposureMs > currentInterval) {
-                            setCameraInterval(String(Math.round(exposureMs)));
-                          }
-                        }}
+                      if (!isNaN(exposureMs) && exposureMs > currentInterval) {
+                        setCameraInterval(String(Math.round(exposureMs)));
+                      }
+                    }}
                     onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
                     className="h-7 text-xs border-gray-300"
                     placeholder="1.0"
                   />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Interval (ms)</Label>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={cameraInterval}
-                  onChange={(e) => {
-                    const newInterval = e.target.value;
-                    setCameraInterval(newInterval);
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-600">Interval (ms)</Label>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={cameraInterval}
+                    onChange={(e) => {
+                      const newInterval = e.target.value;
+                      setCameraInterval(newInterval);
 
-                    const inter = parseFloat(newInterval);
-                    const exp = parseFloat(cameraExposure);
+                      const inter = parseFloat(newInterval);
+                      const exp = parseFloat(cameraExposure);
 
-                    if (!isNaN(inter) && !isNaN(exp) && exp > inter) {
-                      setCameraExposure(String(inter));
-                    }
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
-                  className="h-7 text-xs border-gray-300"
-                  placeholder="30"
-                />
-              </div>
+                      if (!isNaN(inter) && !isNaN(exp) && exp > inter) {
+                        setCameraExposure(String(inter));
+                      }
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
+                    className="h-7 text-xs border-gray-300"
+                    placeholder="30"
+                  />
+                </div>
                 <Button
                   variant="default"
                   size="sm"

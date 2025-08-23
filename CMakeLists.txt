@@ -67,6 +67,7 @@ set(UART_MQTT_BRIDGE_SOURCES
     ${UART_MQTT_BRIDGE_DIR}/main.cpp
     ${UART_MQTT_BRIDGE_DIR}/src/MQTTHandler.cpp
     ${UART_MQTT_BRIDGE_DIR}/src/ShmHandler.cpp
+    ${UART_MQTT_BRIDGE_DIR}/src/UartHandler.cpp
 )
 
 set(UART_MQTT_BRIDGE_INCLUDES
@@ -88,3 +89,37 @@ target_link_libraries(UartMqttBridge
     pthread
     rt
 )
+
+
+# === Star Processor===
+
+set(STAR_PROCESSOR_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/starProcessor
+)
+
+set(STAR_PROCESSOR_SOURCES
+    ${STAR_PROCESSOR_DIR}/main.cpp
+)
+
+set(STAR_PROCESSOR_INCLUDES
+    ${STAR_PROCESSOR_DIR}/inc
+    ${STAR_PROCESSOR_DIR}/inc_shr
+)
+
+
+add_executable(starProcessor ${STAR_PROCESSOR_SOURCES})
+
+target_include_directories(starProcessor
+                             PRIVATE
+                            ${STAR_PROCESSOR_INCLUDES})
+
+
+target_link_libraries(starProcessor
+    PRIVATE
+    paho-mqtt3c
+    pthread
+    rt
+    opencv_core
+    opencv_imgproc
+)
+

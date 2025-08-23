@@ -24,7 +24,7 @@ else
     -v "$PROJECT_DIR:/project" \
     "$IMAGE_NAME" /bin/bash -c "
       apt update && \
-      apt install -y cmake build-essential git libpaho-mqtt-dev && \
+      apt install -y cmake build-essential git libpaho-mqtt-dev libopencv-dev && \
       $BUILD_CMD
     "
 fi
