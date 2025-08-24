@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fcntl.h>           /* For O_* constants */
 #include <sys/mman.h>
+#include <thread>
+#include <chrono>
 
 bool fileExists(const char* path) {
     struct stat buffer;
@@ -38,6 +40,7 @@ int openShm(const char* path, int size, void** ptr){
 ShmHandler::ShmHandler(){
     openShm(CAMERA_CONTROLS_SHM, sizeof(SHM_cameraControls) ,reinterpret_cast<void**>(&m_shm_camera_controls_ptr));
     openShm(MISC_INFO_SHM, sizeof(Misc_Info), reinterpret_cast<void**> (&m_shm_misc_info_ptr));
+    openShm(CAMERA_INFO_SHM, sizeof(SHM_cameraInfo), reinterpret_cast<void**> (&m_shm_camera_info_ptr));
     // if(fileExists(CAMERA_CONTROLS_SHM_FULL_PATH)){
     //     m_shm_camera_controls_fd = shm_open(CAMERA_CONTROLS_SHM, O_RDWR, 0666);
     //     if(m_shm_camera_controls_fd == -1){
@@ -77,6 +80,10 @@ void ShmHandler::readMiscInfo(Misc_Info& misc_info){
     misc_info.current_exposure_time = m_shm_misc_info_ptr->current_exposure_time;
     misc_info.final_exposure_time = m_shm_misc_info_ptr->final_exposure_time;
     m_shm_misc_info_ptr->updated = false;
+}
+
+void ShmHandler::readCameraInfo(SHM_cameraInfo& cam_info){
+    cam_info = *m_shm_camera_info_ptr;
 }
 
 int ShmHandler::setupCameraRoi(){

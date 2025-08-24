@@ -11,7 +11,8 @@ SHM_NAME = "/guider_image"
 SHM_PATH = f"/dev/shm{SHM_NAME}"
 
 # C++ ImageInfo = 5 x int32_t = 20 bytes
-IMAGE_INFO_FORMAT = "iiiii"
+IMAGE_INFO_FORMAT = "8i24s"
+
 IMAGE_INFO_SIZE = struct.calcsize(IMAGE_INFO_FORMAT)
 
 # MQTT setup
@@ -65,14 +66,17 @@ def read_image_from_shm(shm):
         header = shm.read(IMAGE_INFO_SIZE)
         if len(header) != IMAGE_INFO_SIZE:
             raise ValueError("Incomplete header data")
-        ID, x_size, y_size, data_type, bayer = struct.unpack(IMAGE_INFO_FORMAT, header)
+        ID, x_size, y_size, data_type, bayer, gain, exposure, interval, date = struct.unpack(IMAGE_INFO_FORMAT, header)
+        # if `date` is bytes, decode it and strip nulls
+        if isinstance(date, bytes):
+            date = date.decode("utf-8").strip("\x00")
+        info = "{" + "\"gain\":"+ str(gain) + ", \"exposure\":" + str(exposure) + ", \"interval\":" + str(interval) + ",\"date\":\"" + date + "\"}"
         # print(x_size, " ", y_size, " ", data_type)
         bytes_per_pixel = {0:3, 1:2, 2:1, 3:1, 4:2}[data_type]
         buffer_size = x_size * y_size * bytes_per_pixel
         raw_data = shm.read(buffer_size)
         if len(raw_data) != buffer_size:
             raise ValueError("Incomplete image data")
-        print("im size: ",x_size," ", y_size)
         if data_type == 0:  # RGB24
             image = np.frombuffer(raw_data, dtype=np.uint8).reshape((y_size, x_size, 3))
             # Assuming image is in BGR format
@@ -103,9 +107,9 @@ def read_image_from_shm(shm):
             # ...rest of image decoding...
     except (ValueError, struct.error, KeyError) as e:
         print(f"Error reading shared memory: {e}")
-        return None, None
+        return None, None, None
 
-    return ID, image
+    return ID, image, info
 
 
 with open(SHM_PATH, "rb") as shm_file:
@@ -113,7 +117,7 @@ with open(SHM_PATH, "rb") as shm_file:
     last_id = -1
     try:
         while True:
-            ID, image = read_image_from_shm(shm)
+            ID, image, im_info = read_image_from_shm(shm)
             if ID is None or image is None:
                 time.sleep(0.1)
                 continue
@@ -137,6 +141,7 @@ with open(SHM_PATH, "rb") as shm_file:
 
                 if success:
                     client.publish(topic, encoded.tobytes(), qos=0)
+                    client.publish("guider/image_info", im_info, qos=0)
                     print(f"Published {selected_format.upper()} image ID {ID} to {topic}")
                 else:
                     print(f"{selected_format.upper()} encoding failed")

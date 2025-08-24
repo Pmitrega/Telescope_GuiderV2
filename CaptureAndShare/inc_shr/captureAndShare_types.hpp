@@ -11,6 +11,10 @@
 #define MISC_INFO_SHM "/misc_info"
 #define MISC_INFO_SHM_FULL_PATH "/dev/shm" MISC_INFO_SHM
 
+#define CAMERA_INFO_SHM "/camera_info"
+#define CAMERA_INFO_SHM_FULL_PATH "/dev/shm" CAMERA_INFO
+
+
 enum ImageDataType
 {
     RGB24 = 0,
@@ -41,6 +45,10 @@ struct ImageInfo
     int y_size;
     ImageDataType data_type;
     ImageBayerPattern bayerPattern;
+    int gain;
+    int exposure;
+    int interval;
+    char date[24];
 };
 
 
@@ -83,12 +91,18 @@ struct cameraSetup{
 
 struct SHM_cameraInfo
 {
+    char procuder[32];
+    char camera_name[32];
     int x_size;
     int y_size;
     int gain_min;
     int gain_max;
     int exposure_min;
     int exposure_max;
+    bool data_types[UNKNOWN_DATA_TYPE];
+    bool mono;
+    enum ImageBayerPattern patt;
+    bool ready = false;
 };
 
 

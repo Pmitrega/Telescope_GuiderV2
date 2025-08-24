@@ -628,7 +628,7 @@ int cameraControl::ZWO_ScanForCameras()
         m_scanedCameras.back().y_res = ppASICameraInfo.MaxHeight;
         m_scanedCameras.back().mono = !ppASICameraInfo.IsColorCam;
         m_scanedCameras.back().ID = ppASICameraInfo.CameraID;
-        m_scanedCameras.back().bayer_patter = getImageBayerFromASI(ppASICameraInfo.BayerPattern);
+        m_scanedCameras.back().bayer_patter = ppASICameraInfo.IsColorCam ? getImageBayerFromASI(ppASICameraInfo.BayerPattern):NONE;
         for (int i = 0; i < 8; i++)
         {
             if (ppASICameraInfo.SupportedVideoFormat[i] == ASI_IMG_END)

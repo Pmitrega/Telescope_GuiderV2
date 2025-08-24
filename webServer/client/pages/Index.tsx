@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import mqtt from "mqtt";
+import { set } from "date-fns";
 
 interface DataPoint {
   x: number;
@@ -73,9 +74,9 @@ export default function Index() {
   const [feedforwardI, setFeedforwardI] = useState("1.1");
   const [feedforwardD, setFeedforwardD] = useState("0.5");
   const [sensitivity, setSensitivity] = useState([75]);
-  const [cameraGain, setCameraGain] = useState("150");
-  const [cameraExposure, setCameraExposure] = useState("1000");
-  const [cameraInterval, setCameraInterval] = useState("30");
+  const [cameraGain, setCameraGain] = useState("-1");
+  const [cameraExposure, setCameraExposure] = useState("-1");
+  const [cameraInterval, setCameraInterval] = useState("-1");
   const [cameraImageType, setCameraImageType] = useState(0); // default to RGB24
   const [mqttClient, setMqttClient] = useState<mqtt.MqttClient | null>(null);
   const [receivedImage, setReceivedImage] = useState<string | null>(null);
@@ -95,10 +96,19 @@ export default function Index() {
   const [selectedFormat, setSelectedFormat] = useState("jpeg");
   const [current_expo, setCurrentExpo] = useState(0);
   const [total_expo, setTotalExpo] = useState(1000);
+  const [gain_range, setGainRange] = useState([0,100]);
+  const [exposure_range, setExpoRange] = useState([64,2000000000]);
+  const [av_image_types, setImageTypes] = useState([0,1,2,3,4]);
 
   const deviceIP = window.location.hostname;
 
-
+const imageTypeOptions = [
+  { value: 0, label: "RGB24" },
+  { value: 1, label: "RAW16" },
+  { value: 2, label: "RAW8" },
+  { value: 3, label: "Y8" },
+  { value: 4, label: "Y16" }
+];
 
   const ProgressBar = ({ current_expo, total_expo }) => {
     const percentage = Math.min(Math.floor((current_expo / total_expo) * 100), 100);
@@ -173,6 +183,20 @@ export default function Index() {
             console.log("Subscribed to guider/exposure_status");
           }
         });
+        client.subscribe('guider/camera_info', (err) => {
+          if (err) {
+            console.error("Failed to subscribe to guider/camera_info", err);
+          } else {
+            console.log("Subscribed to guider/camera_info");
+          }
+        });
+        client.subscribe('guider/image_info', (err) => {
+          if (err) {
+            console.error("Failed to subscribe to guider/image_info", err);
+          } else {
+            console.log("Subscribed to guider/image_info");
+          }
+        });
       });
 
       client.on("message", (topic, message) => {
@@ -211,6 +235,51 @@ export default function Index() {
             }
           } catch (e) {
             console.error('Invalid JSON message:', e);
+          }
+        }
+        if (topic === 'guider/camera_info') {
+          try {
+            const data = JSON.parse(message.toString());
+            // console.log(data);
+            if (data.gain_range !== undefined && data.exposure_range !== undefined && data.data_types !== undefined) {
+              setGainRange(data.gain_range);
+              setExpoRange(data.exposure_range);
+              setImageTypes(data.data_types);
+            }
+          } catch (e) {
+            console.error('Invalid JSON message:', e);
+          }
+        }
+        if (topic === 'guider/image_info') {
+          try {
+            const data = JSON.parse(message.toString());
+            console.log(data);
+
+            if (
+              data.gain !== undefined &&
+              data.exposure !== undefined &&
+              data.date !== undefined &&
+              data.interval !== undefined
+            ) {
+              // always update "captured" values from MQTT
+              setCapturedGain(data.gain);
+              setCapturedExposure((data.exposure / 1000).toFixed(2));
+              setCaptureTime(data.date);
+              setCapturedInterval(data.interval);
+
+              // only initialize input fields once (if user hasn't touched them yet)
+              setCameraGain((prev) =>
+                prev === "-1" ? String(data.gain) : prev
+              );
+              setCameraExposure((prev) =>
+                prev === "-1" ? (data.exposure / 1000).toFixed(2) : prev
+              );
+              setCameraInterval((prev) =>
+                prev === "-1" ? String(data.interval) : prev
+              );
+            }
+          } catch (e) {
+            console.error("Invalid JSON message:", e);
           }
         }
       });
@@ -308,6 +377,12 @@ export default function Index() {
     }
     console.log("Published format")
   }, [selectedFormat, mqttClient]);
+  useEffect(() => {
+  // If the current selection is no longer available, pick the first available type
+  if (!av_image_types.includes(cameraImageType) && av_image_types.length > 0) {
+    setCameraImageType(av_image_types[0]);
+  }
+}, [av_image_types, cameraImageType]);
   // Draw grid and data points only when no image is received
   useEffect(() => {
     if (receivedImage) return; // Don't draw grid if we have an image
@@ -1146,15 +1221,18 @@ export default function Index() {
                     value={cameraImageType}
                     onChange={(e) => setCameraImageType(parseInt(e.target.value))}
                   >
-                    <option value={0}>RGB24</option>
-                    <option value={1}>RAW16</option>
-                    <option value={2}>RAW8</option>
-                    <option value={3}>Y8</option>
-                    <option value={4}>Y16</option>
+                    {imageTypeOptions
+                      .filter(opt => av_image_types.includes(opt.value)) // only include available types
+                      .map(opt => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))
+                    }
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Gain</Label>
+                  <Label className="text-xs text-gray-600">Gain {gain_range ? `(${gain_range[0]} - ${gain_range[1]})` : ""} </Label>
                   <Input
                     type="number"
                     inputMode="numeric"

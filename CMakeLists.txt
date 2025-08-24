@@ -111,7 +111,9 @@ add_executable(starProcessor ${STAR_PROCESSOR_SOURCES})
 
 target_include_directories(starProcessor
                              PRIVATE
-                            ${STAR_PROCESSOR_INCLUDES})
+                            ${STAR_PROCESSOR_INCLUDES}
+                            ${CAPTURE_AND_SHARE_DIR}/inc_shr
+                            /usr/include/opencv4)
 
 
 target_link_libraries(starProcessor

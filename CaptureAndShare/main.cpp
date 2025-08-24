@@ -62,7 +62,7 @@ int main()
                 continue;
             }
             auto cam_info = cam_ctrl.getCurrentCameraInfo();
-
+            senderReader.sendCameraInfo(cam_info);
             if (cam_info.cameraName == last_opened_camera.cameraName)
             {
                 std::cout << "Found previously connected camera:" << cam_info.cameraName << std::endl;
@@ -93,7 +93,7 @@ int main()
         const uint8_t *cam_buffer = cam_ctrl.getImageBuffer();
         if (cam_buffer != nullptr)
         {
-            senderReader.setImageData(cam_buffer);
+            senderReader.setImageData(cam_buffer, cam_ctrl.getCameraSetup());
             senderReader.sendImageData();
             std::cout << "Sending..." << std::endl;
         }
@@ -105,6 +105,7 @@ int main()
             cam_ctrl.setupCamera(cam_setup);
             auto applied_setup = cam_ctrl.getCameraSetup();
             auto cam_info = cam_ctrl.getCurrentCameraInfo();
+            senderReader.sendCameraInfo(cam_info);
             ImageInfo im_info = {0, applied_setup.ROI_x.second, applied_setup.ROI_y.second,
                                  cam_setup.img_data_type, cam_info.bayer_patter};
             senderReader.modifyBufferSize(im_info);

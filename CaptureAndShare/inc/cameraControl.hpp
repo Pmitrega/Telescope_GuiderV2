@@ -1,3 +1,6 @@
+#ifndef CAMERA_CONTROL_HPP
+#define CAMERA_CONTROL_HPP
+
 #include <string>
 #include <vector>
 #include "captureAndShare_types.hpp"
@@ -67,3 +70,5 @@ private:
 };
 
 std::ostream &operator<<(std::ostream &os, const cameraInfo &cam);
+
+#endif

@@ -13,6 +13,7 @@
 
 #define LOOP_SLEEP_MS 5
 #define UPDATE_MISC_IT_MAX (250 / LOOP_SLEEP_MS)
+#define UPDATE_CAM_INFO_IT_MAX (500 / LOOP_SLEEP_MS)
 
 void initializeMessages(std::vector<MessFromMQTT> *mess_from_mqtt, std::vector<MessFromUART> *mess_from_uart)
 {
@@ -74,10 +75,12 @@ int main()
 {
     initUart();
     uint64_t update_misc_it = 0;
+    uint64_t update_cam_info_it = 0;
     std::vector<MessFromMQTT> mess_from_MQTT;
     std::vector<MessFromUART> mess_from_UART;
     ShmHandler shmHandler;
     Misc_Info misc_info;
+    SHM_cameraInfo cam_info;
     initializeMessages(&mess_from_MQTT, &mess_from_UART);
     nlohmann::json j;
     // Example usage:
@@ -128,7 +131,33 @@ int main()
             }
         }
 
+        if (update_cam_info_it % UPDATE_CAM_INFO_IT_MAX == 0)
+        {
+            shmHandler.readCameraInfo(cam_info);
+            std::string message = "{ \"producer\": \"" + std::string(cam_info.procuder) + "\"," +
+                                    "\"name \":\"" + std::string(cam_info.camera_name) + "\"," +
+                                    "\"gain_range\": " + "[" + std::to_string(cam_info.gain_min) + "," + std::to_string(cam_info.gain_max) + "],"
+                                    "\"exposure_range\": " + "[" + std::to_string(cam_info.exposure_min) + "," + std::to_string(cam_info.exposure_max) + "],";
+            std::string data_types = "[";
+            for(int i = 0; i < UNKNOWN_DATA_TYPE; i++){
+                if(cam_info.data_types[i] == true){
+                    data_types += std::to_string(i) + ",";
+                }
+            }
+            if(data_types.back() == ','){
+                data_types.pop_back();
+            }
+            data_types = data_types + "]";
+            message += "\"data_types\": "  + data_types + ",";
+            message += "\"mono\": "  + std::to_string(cam_info.mono) + ",";
+            message += "\"x_res\": "  + std::to_string(cam_info.x_size) + ",";
+            message += "\"y_res\": "  + std::to_string(cam_info.y_size) + ",";
+            message += "\"patt\": "  + std::to_string(cam_info.patt);
+            message += "}";
+            mqtt_hander.publish("guider/camera_info", message);
+        }
         update_misc_it += 1;
+        update_cam_info_it +=1;
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     // Destroy all semaphores and mutexes before exit
