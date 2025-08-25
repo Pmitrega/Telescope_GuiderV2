@@ -225,7 +225,7 @@ useEffect(() => {
                 const newBuffer = [...prevBuffer, imageEntry];
 
                 if (autoDumpRef.current && newBuffer.length >= 60) {
-                  downloadImages(); // pass buffer explicitly
+                  downloadImages(newBuffer); // pass buffer explicitly
                   return []; // clear buffer
                 }
 
@@ -521,18 +521,20 @@ useEffect(() => {
   };
 
 
-  const downloadImages = async () => {
-    const zip = new JSZip();
+const downloadImages = async (images = null, filename = "images.zip") => {
+  const zip = new JSZip();
 
-    imageBuffer.forEach((img, index) => {
-      const base64 = img.dataUrl.split(",")[1];
-      const ext = img.format;
-      zip.file(`${img.name}.${ext}`, base64, { base64: true });
-    });
+  const source = images ?? imageBuffer; // if null, fall back to imageBuffer
 
-    const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, "images.zip");
-  };
+  source.forEach((img) => {
+    const base64 = img.dataUrl.split(",")[1];
+    const ext = img.format;
+    zip.file(`${img.name}.${ext}`, base64, { base64: true });
+  });
+
+  const content = await zip.generateAsync({ type: "blob" });
+  saveAs(content, filename);
+};
   const handleSetup = () => {
     const now = Date.now();
 
