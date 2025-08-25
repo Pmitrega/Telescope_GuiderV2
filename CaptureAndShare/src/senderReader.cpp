@@ -113,6 +113,7 @@ int senderReader::setupShm() {
 
 bool senderReader::newSetupRequested(cameraSetup* cam_controls){
     if(m_guider_camera_controls_shm_ptr->updated == true){
+        std::cout << "New setup requested" << std::endl;
         m_guider_camera_controls_shm_ptr->updated = false;
         cam_controls->exposure_us = m_guider_camera_controls_shm_ptr->exposure;
         cam_controls->gain = m_guider_camera_controls_shm_ptr->gain;
@@ -185,8 +186,9 @@ int senderReader::sendCameraInfo(cameraInfo& cam_info){
 
 int senderReader::modifyBufferSize(ImageInfo img_info){
     auto last_type = m_image_info.data_type;
-
+    int last_id = m_image_info.ID;
     m_image_info = img_info;
+    m_image_info.ID = last_id;
     
     if(img_info.data_type == UNKNOWN_DATA_TYPE){
         m_image_info.data_type = last_type;    

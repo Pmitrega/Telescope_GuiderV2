@@ -134,9 +134,6 @@ useEffect(() => {
   console.log("CapturedName updated:", capturedName);
 }, [capturedName]);
 
-  useEffect(() => {
-    handleSetup();
-  }, [cameraImageType]);
 
   useEffect(() => {
     if (dec_speed_slider !== undefined) {

@@ -11,8 +11,10 @@ SHM_NAME = "/guider_image"
 SHM_PATH = f"/dev/shm{SHM_NAME}"
 
 # C++ ImageInfo = 5 x int32_t = 20 bytes
-IMAGE_INFO_FORMAT = "8i24s"
 
+IMAGE_ID_FORMAT = "i"
+IMAGE_ID_SIZE = struct.calcsize(IMAGE_ID_FORMAT)
+IMAGE_INFO_FORMAT = "8i24s"
 IMAGE_INFO_SIZE = struct.calcsize(IMAGE_INFO_FORMAT)
 
 # MQTT setup
@@ -60,7 +62,7 @@ client.on_message = on_message
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
 client.loop_start()
 
-def read_image_from_shm(shm):
+def read_image_from_shm(shm, last_id):
     try:
         shm.seek(0)
         header = shm.read(IMAGE_INFO_SIZE)
@@ -72,6 +74,8 @@ def read_image_from_shm(shm):
             date = date.decode("utf-8").strip("\x00")
         info = "{" +"\"ID\":"+ str(ID) + ",\"gain\":"+ str(gain) + ", \"exposure\":" + str(exposure) + ", \"interval\":" + str(interval) + ",\"date\":\"" + date + "\"}"
         # print(x_size, " ", y_size, " ", data_type)
+        if last_id == ID:
+            return ID, None, None
         bytes_per_pixel = {0:3, 1:2, 2:1, 3:1, 4:2}[data_type]
         buffer_size = x_size * y_size * bytes_per_pixel
         raw_data = shm.read(buffer_size)
@@ -117,13 +121,12 @@ with open(SHM_PATH, "rb") as shm_file:
     last_id = -1
     try:
         while True:
-            ID, image, im_info = read_image_from_shm(shm)
-            if ID is None or image is None:
-                time.sleep(0.1)
+            ID, image, im_info = read_image_from_shm(shm, last_id)
+            if image is None:
+                time.sleep(0.01)
                 continue
             if ID != last_id:
                 start_time = time.perf_counter()
-                last_id = ID
                 
                 # Encode image based on selected_format
                 if selected_format == "jpg":
@@ -146,7 +149,7 @@ with open(SHM_PATH, "rb") as shm_file:
                     print(f"Published {selected_format.upper()} image ID {ID} to {topic}")
                 else:
                     print(f"{selected_format.upper()} encoding failed")
-            time.sleep(0.01)
+                last_id = ID
     except KeyboardInterrupt:
         print("Stopping.")
     finally:
