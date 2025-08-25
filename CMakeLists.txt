@@ -123,5 +123,6 @@ target_link_libraries(starProcessor
     rt
     opencv_core
     opencv_imgproc
+    opencv_imgcodecs
 )
 
