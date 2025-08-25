@@ -81,6 +81,7 @@ export default function Index() {
   const [mqttClient, setMqttClient] = useState<mqtt.MqttClient | null>(null);
   const [receivedImage, setReceivedImage] = useState<string | null>(null);
   const lastSetupPublish = useRef<number>(0);
+  const [capturedName, setCapturedName] = useState("UNKNOWN");
   const [capturedExposure, setCapturedExposure] = useState("1000");
   const [capturedInterval, setCapturedInterval] = useState("30");
   const [capturedGain, setCapturedGain] = useState("150");
@@ -99,10 +100,10 @@ export default function Index() {
   const [gain_range, setGainRange] = useState([0,100]);
   const [exposure_range, setExpoRange] = useState([64,2000000000]);
   const [av_image_types, setImageTypes] = useState([0,1,2,3,4]);
-
+  const [autoDump, setAutoDump] = useState(false);
   const deviceIP = window.location.hostname;
-
-
+  const autoDumpRef = useRef(false);
+var caputered_image_name = "UNK";
 const imageTypeOptions = [
   { value: 0, label: "RGB24" },
   { value: 1, label: "RAW16" },
@@ -128,7 +129,10 @@ const imageTypeOptions = [
     );
   };
 
-
+useEffect(() => {
+  caputered_image_name = capturedName;
+  console.log("CapturedName updated:", capturedName);
+}, [capturedName]);
 
   useEffect(() => {
     handleSetup();
@@ -212,15 +216,39 @@ const imageTypeOptions = [
               )
             );
             const imageUrl = `data:image/${format};base64,${base64}`;
-
-            const imageEntry = { dataUrl: imageUrl, format };
+            console.log(caputered_image_name)
+            const imageEntry = { dataUrl: imageUrl, format, name: `${caputered_image_name}` };
 
             // Update image buffer (max 120)
-            setImageBuffer(prevBuffer => {
-              const newBuffer = [...prevBuffer, imageEntry];
-              if (newBuffer.length > 360) newBuffer.shift();
-              return newBuffer;
-            });
+
+              setImageBuffer(prevBuffer => {
+                const newBuffer = [...prevBuffer, imageEntry];
+
+                if (autoDumpRef.current && newBuffer.length >= 60) {
+                  downloadImages(); // pass buffer explicitly
+                  return []; // clear buffer
+                }
+
+                if (!autoDumpRef.current && newBuffer.length > 360) {
+                  newBuffer.shift(); // keep max 120
+                }
+
+                return newBuffer;
+              });
+            // setImageBuffer((prevBuffer) => {
+            //   const newBuffer = [...prevBuffer, imageEntry];
+
+            //   // keep max 360 images
+            //   if (newBuffer.length > 360) newBuffer.shift();
+
+            //   // auto-download if checkbox is checked and buffer exceeds threshold
+            //   if (autoDump && newBuffer.length >= 60) {
+            //     //downloadImages();   // your function to download all images
+            //     return [];                   // clear buffer
+            //   }
+
+            //   return newBuffer;
+            // });
 
             setReceivedImage(imageUrl);
           } catch (error) {
@@ -263,6 +291,8 @@ const imageTypeOptions = [
               data.interval !== undefined
             ) {
               // always update "captured" values from MQTT
+              setCapturedName("image" + String(data.ID))
+              caputered_image_name = "image" + String(data.ID)
               setCapturedGain(data.gain);
               setCapturedExposure((data.exposure / 1000).toFixed(2));
               setCaptureTime(data.date);
@@ -497,7 +527,7 @@ const imageTypeOptions = [
     imageBuffer.forEach((img, index) => {
       const base64 = img.dataUrl.split(",")[1];
       const ext = img.format;
-      zip.file(`image_${index + 1}.${ext}`, base64, { base64: true });
+      zip.file(`${img.name}.${ext}`, base64, { base64: true });
     });
 
     const content = await zip.generateAsync({ type: "blob" });
@@ -1123,7 +1153,13 @@ const imageTypeOptions = [
                     >
                       Download Images
                     </button>
-
+                        <Checkbox
+                      id="autoDump"
+                      className="data-[state=checked]:bg-blue-600  bg-gray-500"
+                      checked={autoDumpRef.current}
+                      onCheckedChange={(checked) => autoDumpRef.current = checked}
+                    />
+                    <Label htmlFor="autoDump" className="text-xs">Auto dump</Label>
                     <span className="text-xs text-gray-400">
                       {imageBuffer.length} image{imageBuffer.length !== 1 && "s"} in buffer
                     </span>

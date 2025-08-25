@@ -70,7 +70,7 @@ def read_image_from_shm(shm):
         # if `date` is bytes, decode it and strip nulls
         if isinstance(date, bytes):
             date = date.decode("utf-8").strip("\x00")
-        info = "{" + "\"gain\":"+ str(gain) + ", \"exposure\":" + str(exposure) + ", \"interval\":" + str(interval) + ",\"date\":\"" + date + "\"}"
+        info = "{" +"\"ID\":"+ str(ID) + ",\"gain\":"+ str(gain) + ", \"exposure\":" + str(exposure) + ", \"interval\":" + str(interval) + ",\"date\":\"" + date + "\"}"
         # print(x_size, " ", y_size, " ", data_type)
         bytes_per_pixel = {0:3, 1:2, 2:1, 3:1, 4:2}[data_type]
         buffer_size = x_size * y_size * bytes_per_pixel
@@ -140,8 +140,9 @@ with open(SHM_PATH, "rb") as shm_file:
                     continue
 
                 if success:
-                    client.publish(topic, encoded.tobytes(), qos=0)
                     client.publish("guider/image_info", im_info, qos=0)
+                    time.sleep(0.01)
+                    client.publish(topic, encoded.tobytes(), qos=0)
                     print(f"Published {selected_format.upper()} image ID {ID} to {topic}")
                 else:
                     print(f"{selected_format.upper()} encoding failed")
