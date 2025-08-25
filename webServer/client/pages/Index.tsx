@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+import {Slider} from "@/components/ui/slider"; // adjust path if needed
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -93,7 +93,7 @@ export default function Index() {
   const lastMotorPublish = useRef(0);
   const lastPublishedSpeeds = useRef({ ra: 0, dec: 0 });
   const [imageBuffer, setImageBuffer] = useState([]);
-  const [selectedFormat, setSelectedFormat] = useState("jpeg");
+  const [selectedFormat, setSelectedFormat] = useState("jpg");
   const [current_expo, setCurrentExpo] = useState(0);
   const [total_expo, setTotalExpo] = useState(1000);
   const [gain_range, setGainRange] = useState([0,100]);
@@ -101,6 +101,7 @@ export default function Index() {
   const [av_image_types, setImageTypes] = useState([0,1,2,3,4]);
 
   const deviceIP = window.location.hostname;
+
 
 const imageTypeOptions = [
   { value: 0, label: "RGB24" },
@@ -203,7 +204,7 @@ const imageTypeOptions = [
         if (topic === "/guider/image_jpg" || topic === "/guider/image_png") {
           try {
             const format = topic === "/guider/image_jpg" ? "jpg" : "png";
-
+            setSelectedFormat(format);
             const base64 = btoa(
               new Uint8Array(message).reduce(
                 (data, byte) => data + String.fromCharCode(byte),
@@ -646,75 +647,53 @@ const imageTypeOptions = [
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-zinc-800 text-gray-400">
       <div className="container mx-auto p-3 h-[calc(100vh-20px)]">
         <div className="grid grid-cols-12 gap-3 h-full">
           {/* Left Control Panel */}
           <div className="col-span-12 lg:col-span-2 space-y-3">
             {/* Control Tabs */}
-            <Card className="bg-white border-gray-300 shadow-sm">
+            <Card className="bg-zinc-900 text-gray-400 border-gray-600 shadow-sm">
               <CardContent className="p-3">
-                <Tabs defaultValue="manual" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-3">
-                    <TabsTrigger value="manual" className="text-xs">
+                <Tabs defaultValue="manual" className="w-full bg-zinc-900">
+                  <TabsList className="grid w-full grid-cols-2 mb-3 bg-zinc-900">
+                    <TabsTrigger value="manual"     className="text-xs text-gray-400 bg-zinc-900 border border-gray-600 rounded-l-md
+                                                                  data-[state=active]:bg-gray-600 data-[state=active]:text-gray-400">
                       Manual
                     </TabsTrigger>
-                    <TabsTrigger value="auto" className="text-xs">
+                    <TabsTrigger value="auto" className="text-xs text-gray-400 bg-zinc-900 border border-gray-600 rounded-l-md
+                                                                  data-[state=active]:bg-gray-600 data-[state=active]:text-gray-400">
                       Auto
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="manual" className="space-y-3 mt-0">
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button
-                        variant={isCapturing ? "destructive" : "default"}
-                        size="sm"
-                        className="text-xs h-7"
-                      >
-                        Start
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs h-7"
-                      >
-                        Stop
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs h-7"
-                      >
-                        Pause
-                      </Button>
-                    </div>
-
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label className="text-xs text-gray-600">
+                          <Label className="text-xs text-gray-400">
                             RA Speed
                           </Label>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-400">
                             {(ra_speed_slider && ra_speed_slider[0]) || 0}"/s
                           </span>
                         </div>
-                        <Slider
+                                <Slider
                           value={ra_speed_slider || [0]}
                           onValueChange={handleRASpeedChange}
                           max={500}
                           min={-500}
                           step={10}
-                          className="w-full"
+                          className="w-full bg-gray-700 h-1 rounded"
                         />
                       </div>
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label className="text-xs text-gray-600">
+                          <Label className="text-xs text-gray-400">
                             Dec Speed
                           </Label>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-400">
                             {(dec_speed_slider && dec_speed_slider[0]) || 0}"/s
                           </span>
                         </div>
@@ -746,7 +725,7 @@ const imageTypeOptions = [
                         </Button>
                       </div>
                       <select
-                        className="w-full h-7 text-xs border border-gray-300 rounded px-2 bg-white"
+                        className="w-full h-7 text-xs border border-gray-600 rounded px-2 bg-zinc-900 text-gray-400"
                         value={selectedAlgorithm}
                         onChange={(e) => setSelectedAlgorithm(e.target.value)}
                       >
@@ -766,7 +745,7 @@ const imageTypeOptions = [
                           <Input
                             value={pidP}
                             onChange={(e) => setPidP(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                         <div className="space-y-1">
@@ -776,7 +755,7 @@ const imageTypeOptions = [
                           <Input
                             value={pidI}
                             onChange={(e) => setPidI(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                         <div className="space-y-1">
@@ -786,7 +765,7 @@ const imageTypeOptions = [
                           <Input
                             value={pidD}
                             onChange={(e) => setPidD(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                       </div>
@@ -801,7 +780,7 @@ const imageTypeOptions = [
                           <Input
                             value={adaptiveP}
                             onChange={(e) => setAdaptiveP(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                         <div className="space-y-1">
@@ -811,7 +790,7 @@ const imageTypeOptions = [
                           <Input
                             value={adaptiveI}
                             onChange={(e) => setAdaptiveI(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                         <div className="space-y-1">
@@ -821,7 +800,7 @@ const imageTypeOptions = [
                           <Input
                             value={adaptiveD}
                             onChange={(e) => setAdaptiveD(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                         <div className="space-y-1">
@@ -831,7 +810,7 @@ const imageTypeOptions = [
                           <Input
                             value={adaptiveWindow}
                             onChange={(e) => setAdaptiveWindow(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                       </div>
@@ -846,7 +825,7 @@ const imageTypeOptions = [
                           <Input
                             value={feedforwardP}
                             onChange={(e) => setFeedforwardP(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                         <div className="space-y-1">
@@ -856,7 +835,7 @@ const imageTypeOptions = [
                           <Input
                             value={feedforwardI}
                             onChange={(e) => setFeedforwardI(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                         <div className="space-y-1">
@@ -866,7 +845,7 @@ const imageTypeOptions = [
                           <Input
                             value={feedforwardD}
                             onChange={(e) => setFeedforwardD(e.target.value)}
-                            className="h-6 text-xs border-gray-300"
+                            className="h-6 text-xs border-gray-600"
                           />
                         </div>
                       </div>
@@ -877,54 +856,57 @@ const imageTypeOptions = [
             </Card>
 
             {/* Camera Settings */}
-            <Card className="bg-white border-gray-300 shadow-sm">
+            <Card className="bg-zinc-900 text-gray-400 border-gray-600 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-700">
+                <CardTitle className="text-sm text-gray-400">
                   Captured Image
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Title</Label>
+                  <Label className="text-xs text-gray-400">Title</Label>
                   <Input
                     placeholder="Image title"
-                    className="h-7 text-xs border-gray-300"
+                    className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Exposure</Label>
+                  <Label className="text-xs text-gray-400">Exposure</Label>
                   <Input
                     value={capturedExposure}
                     onChange={(e) => setCapturedExposure(e.target.value)}
-                    className="h-7 text-xs border-gray-300"
+                    readOnly
+                    className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Capture Time</Label>
+                  <Label className="text-xs text-gray-400">Capture Time</Label>
                   <Input
                     value={captureTime}
                     onChange={(e) => setCaptureTime(e.target.value)}
-                    className="h-7 text-xs border-gray-300"
+                    readOnly
+                    className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Interval</Label>
+                  <Label className="text-xs text-gray-400">Interval</Label>
                   <Input
                     value={capturedInterval}
                     onChange={(e) => setCapturedInterval(e.target.value)}
-                    className="h-7 text-xs border-gray-300"
+                    readOnly
+                    className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Gain</Label>
+                  <Label className="text-xs text-gray-400">Gain</Label>
                   <Input
                     value={capturedGain}
                     onChange={(e) => setCapturedGain(e.target.value)}
-                    className="h-7 text-xs border-gray-300"
+                    className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
                   />
                 </div>
               </CardContent>
@@ -934,24 +916,30 @@ const imageTypeOptions = [
           {/* Main Visualization Area */}
           <div className="col-span-12 lg:col-span-8 space-y-3">
             {/* Analysis Tabs */}
-            <Card className="bg-white border-gray-300 shadow-sm h-36">
+            <Card className="bg-zinc-900 text-gray-400 border-gray-600 shadow-sm h-36">
               <CardContent className="p-2 h-full">
-                <Tabs defaultValue="spectrum" className="h-full flex flex-col">
-                  <TabsList className="grid w-full grid-cols-3 mb-2 h-7 flex-shrink-0">
-                    <TabsTrigger value="spectrum" className="text-xs">
+                <Tabs defaultValue="spectrum" className="h-full flex flex-col bg-zinc-900">
+                  <TabsList className="grid w-full grid-cols-3 mb-2 h-7 flex-shrink-0  bg-zinc-900">
+                    <TabsTrigger
+                      value="spectrum"
+                      className="text-xs text-gray-400 bg-zinc-900 data-[state=active]:bg-gray-600 data-[state=active]:text-gray-400
+                      focus:outline-none focus:ring-2 focus:ring-gray-700"
+                    >
                       Spectrum
                     </TabsTrigger>
-                    <TabsTrigger value="signal" className="text-xs">
+                    <TabsTrigger value="signal"
+                     className="text-xs text-gray-400 bg-zinc-900 data-[state=active]:bg-gray-600 data-[state=active]:text-gray-400">
                       Signal
                     </TabsTrigger>
-                    <TabsTrigger value="options" className="text-xs">
+                    <TabsTrigger value="options"
+                     className="text-xs text-gray-400 bg-zinc-900 data-[state=active]:bg-gray-600 data-[state=active]:text-gray-400 border-gray-600">
                       Options
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent
                     value="spectrum"
-                    className="flex-1 mt-0 overflow-hidden"
+                    className="flex-1 mt-0 overflow-hidden bg-zinc-800 border-gray-600 rounded-lg"
                   >
                     <div className="grid grid-cols-2 gap-2 h-full">
                       <div className="bg-black rounded border flex items-center justify-center min-h-0">
@@ -971,7 +959,7 @@ const imageTypeOptions = [
 
                   <TabsContent
                     value="signal"
-                    className="flex-1 mt-0 overflow-hidden"
+                    className="flex-1 mt-0 overflow-hidden  bg-zinc-800 rounded-lg"
                   >
                     <div className="grid grid-cols-2 gap-2 h-full">
                       <div className="bg-black rounded border flex items-center justify-center min-h-0">
@@ -991,7 +979,7 @@ const imageTypeOptions = [
 
                   <TabsContent
                     value="options"
-                    className="flex-1 mt-0 overflow-hidden"
+                    className="flex-1 mt-0 overflow-hidden  bg-zinc-800  border-gray-600 rounded-lg"
                   >
                     <div className="grid grid-cols-3 gap-2 h-full">
                       {/* Column 1 */}
@@ -999,7 +987,7 @@ const imageTypeOptions = [
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="autoScale"
-                            className="data-[state=checked]:bg-blue-600"
+                            className="data-[state=checked]:bg-blue-600  bg-gray-500"
                           />
                           <Label htmlFor="autoScale" className="text-xs">
                             Auto scale
@@ -1008,7 +996,7 @@ const imageTypeOptions = [
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="logScale"
-                            className="data-[state=checked]:bg-blue-600"
+                            className="data-[state=checked]:bg-blue-600  bg-gray-500"
                           />
                           <Label htmlFor="logScale" className="text-xs">
                             Log scale
@@ -1022,7 +1010,7 @@ const imageTypeOptions = [
                           <Checkbox
                             id="realTimeUpdate"
                             defaultChecked
-                            className="data-[state=checked]:bg-blue-600"
+                            className="data-[state=checked]:bg-blue-600  bg-gray-500"
                           />
                           <Label htmlFor="realTimeUpdate" className="text-xs">
                             Real-time update
@@ -1033,7 +1021,7 @@ const imageTypeOptions = [
                             id="enableCompression2"
                             checked={enableCompression}
                             onCheckedChange={setEnableCompression}
-                            className="data-[state=checked]:bg-blue-600"
+                            className="data-[state=checked]:bg-blue-600  bg-gray-500"
                           />
                           <Label
                             htmlFor="enableCompression2"
@@ -1050,7 +1038,7 @@ const imageTypeOptions = [
                           <Checkbox
                             id="showGridLines2"
                             defaultChecked
-                            className="data-[state=checked]:bg-blue-600"
+                            className="data-[state=checked]:bg-blue-600  bg-gray-500"
                           />
                           <Label htmlFor="showGridLines2" className="text-xs">
                             Show grid lines
@@ -1061,7 +1049,7 @@ const imageTypeOptions = [
                             id="saveRaw2"
                             checked={saveRaw}
                             onCheckedChange={setSaveRaw}
-                            className="data-[state=checked]:bg-blue-600"
+                            className="data-[state=checked]:bg-blue-600 bg-gray-500"
                           />
                           <Label htmlFor="saveRaw2" className="text-xs">
                             Save Raw
@@ -1070,10 +1058,10 @@ const imageTypeOptions = [
 
                         <div className="space-y-1 mt-2">
                           <div className="flex items-center justify-between">
-                            <Label className="text-xs text-gray-600">
+                            <Label className="text-xs text-gray-400">
                               Sensitivity
                             </Label>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-400">
                               {(sensitivity && sensitivity[0]) || 75}%
                             </span>
                           </div>
@@ -1094,19 +1082,19 @@ const imageTypeOptions = [
             </Card>
 
             {/* Main Observation Display */}
-            <Card className="flex-1 bg-white border-gray-400 shadow-sm">
+            <Card className="flex-1 bg-zinc-900 text-gray-400 border-gray-600 shadow-sm">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm text-gray-700">
+                  <CardTitle className="text-sm text-gray-400">
                     Observed Image
                   </CardTitle>
                   <div className="flex items-center space-x-4">
                     <div className="text-xs text-gray-500">
                       <button
                         onClick={() => setSelectedFormat("jpg")}
-                        className={`px-3 py-1 text-xs rounded border ${selectedFormat === "jpg"
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        className={`px-3 py-1 text-xs rounded border border-gray-600 ${selectedFormat === "jpg"
+                            ? "text-gray-400 bg-gray-600"
+                            : "text-gray-600 bg-zinc-800 hover:bg-gray-700"
                           }`}
                       >
                         JPEG
@@ -1114,9 +1102,9 @@ const imageTypeOptions = [
 
                       <button
                         onClick={() => setSelectedFormat("png")}
-                        className={`px-3 py-1 text-xs rounded border ${selectedFormat === "png"
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        className={`px-3 py-1 text-xs rounded border border-gray-600 ${selectedFormat === "png"
+                            ? "text-gray-400 bg-gray-600"
+                            : "text-gray-600 bg-zinc-800 hover:bg-gray-700"
                           }`}
                       >
                         PNG
@@ -1124,19 +1112,19 @@ const imageTypeOptions = [
                     </div>
                     <button
                       onClick={handleResetZoom}
-                      className="px-2 py-1 text-xs text-gray-600 bg-gray-200 hover:bg-gray-300 rounded"
+                      className="px-2 py-1 text-xs text-gray-400 bg-zinc-800 hover:bg-gray-800 rounded"
                     >
                       Reset Zoom
                     </button>
                     <button
                       onClick={downloadImages}
                       disabled={imageBuffer.length === 0}
-                      className="px-2 py-1 text-xs text-gray-600 bg-gray-200 hover:bg-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-2 py-1 text-xs text-gray-400 bg-zinc-800 hover:bg-gray-800 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Download Images
                     </button>
 
-                    <span className="text-xs text-gray-700">
+                    <span className="text-xs text-gray-400">
                       {imageBuffer.length} image{imageBuffer.length !== 1 && "s"} in buffer
                     </span>
 
@@ -1168,23 +1156,23 @@ const imageTypeOptions = [
           {/* Right Status Panel */}
           <div className="col-span-12 lg:col-span-2 space-y-3">
             {/* Battery Status */}
-            <Card className="bg-white border-gray-300 shadow-sm">
+            <Card className="bg-zinc-900 text-gray-400 border-gray-600 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-700 flex items-center">
+                <CardTitle className="text-sm text-gray-400 flex items-center">
                   Battery
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Voltage</span>
-                    <span className="font-mono font-semibold text-gray-800">
+                    <span className="text-gray-400">Voltage</span>
+                    <span className="font-mono font-semibold text-gray-400">
                       {voltage}V
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Current</span>
-                    <span className="font-mono font-semibold text-gray-800">
+                    <span className="text-gray-400">Current</span>
+                    <span className="font-mono font-semibold text-gray-400">
                       {current}A
                     </span>
                   </div>
@@ -1207,17 +1195,17 @@ const imageTypeOptions = [
             </Card>
 
             {/* Camera Configuration */}
-            <Card className="bg-white border-gray-300 shadow-sm">
+            <Card className="bg-zinc-900 text-gray-400 border-gray-700 shadow-md">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-gray-700">
+                <CardTitle className="text-sm">
                   Camera Configuration
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Image Type</Label>
+                  <Label className="text-xs">Image Type</Label>
                   <select
-                    className="h-7 text-xs border-gray-300 rounded w-full"
+                    className="h-7 text-xs  text-zinc-800 bg-gray-500 border-gray-600 rounded w-full"
                     value={cameraImageType}
                     onChange={(e) => setCameraImageType(parseInt(e.target.value))}
                   >
@@ -1232,7 +1220,7 @@ const imageTypeOptions = [
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Gain {gain_range ? `(${gain_range[0]} - ${gain_range[1]})` : ""} </Label>
+                  <Label className="text-xs">Gain {gain_range ? `(${gain_range[0]} - ${gain_range[1]})` : ""} </Label>
                   <Input
                     type="number"
                     inputMode="numeric"
@@ -1240,12 +1228,12 @@ const imageTypeOptions = [
                     value={cameraGain}
                     onChange={(e) => setCameraGain(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
-                    className="h-7 text-xs border-gray-300"
+                    className="h-7 text-xs  text-zinc-800 bg-gray-500 border-gray-600"
                     placeholder="150"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Exposure (ms)</Label>
+                  <Label className="text-xs">Exposure (ms)</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -1263,12 +1251,12 @@ const imageTypeOptions = [
                       }
                     }}
                     onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
-                    className="h-7 text-xs border-gray-300"
+                    className="h-7 text-xs  text-zinc-800 bg-gray-500 border-gray-600"
                     placeholder="1.0"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Interval (ms)</Label>
+                  <Label className="text-xs">Interval (ms)</Label>
                   <Input
                     type="number"
                     inputMode="numeric"
@@ -1286,14 +1274,14 @@ const imageTypeOptions = [
                       }
                     }}
                     onKeyDown={(e) => e.key === 'Enter' && handleSetup()}
-                    className="h-7 text-xs border-gray-300"
+                    className="h-7 text-xs  text-zinc-800 bg-gray-500 border-gray-600"
                     placeholder="30"
                   />
                 </div>
                 <Button
                   variant="default"
                   size="sm"
-                  className="w-full text-xs h-7 mt-3"
+                  className="w-full text-xs h-7 mt-3 text-gray-400 bg-zinc-800 hover:bg-gray-800"
                   onClick={handleSetup}
                 >
                   Setup
@@ -1306,7 +1294,7 @@ const imageTypeOptions = [
             </Card>
 
             {/* Detection Summary */}
-            <Card className="bg-white border-gray-300 shadow-sm">
+            <Card className="bg-zinc-900 text-gray-400 border-gray-600 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm text-gray-700">
                   Detection Summary
@@ -1331,44 +1319,6 @@ const imageTypeOptions = [
                     <span className="text-xs font-mono font-semibold">
                       {dataPoints.filter((p) => p.type === "reference").length}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                      <span className="text-xs text-gray-700">Variables</span>
-                    </div>
-                    <span className="text-xs font-mono font-semibold">
-                      {dataPoints.filter((p) => p.type === "variable").length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-xs text-gray-700">Artifacts</span>
-                    </div>
-                    <span className="text-xs font-mono font-semibold">
-                      {dataPoints.filter((p) => p.type === "artifact").length}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-3">
-                  <div className="text-xs text-gray-600 mb-2">
-                    Session Statistics
-                  </div>
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Images:</span>
-                      <span className="font-mono font-semibold">247</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Exposure:</span>
-                      <span className="font-mono font-semibold">2.1h</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">FWHM:</span>
-                      <span className="font-mono font-semibold">2.3"</span>
-                    </div>
                   </div>
                 </div>
               </CardContent>
