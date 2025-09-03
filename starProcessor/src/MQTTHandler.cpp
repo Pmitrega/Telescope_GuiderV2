@@ -1,5 +1,4 @@
 #include "MQTTHandler.hpp"
-#include "message_types.hpp"
 #include "MQTTClient.h"
 #include <queue>
 #include <iostream>
@@ -7,7 +6,7 @@
 #include <chrono>
 
 #define ADDRESS     "tcp://localhost:1883"
-#define CLIENTID    "UartMqttBridge"
+#define CLIENTID    "starProcessor"
 #define QOS         0
 #define TIMEOUT     10000L
 
@@ -43,10 +42,7 @@ void connlost(void *context, char *cause)
 }
 
 
-MQTTHandler::MQTTHandler(std::vector<MessFromMQTT>* from_mqtt_messages,
-                std::vector<MessFromUART>* from_uart_messages)
-    : m_from_mqtt_messages(from_mqtt_messages),
-      m_from_uart_messages(from_uart_messages)
+MQTTHandler::MQTTHandler()
 {
 
     MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;

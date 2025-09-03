@@ -114,6 +114,20 @@ struct Misc_Info
 };
 
 
+typedef struct Star{
+    float x_center;
+    float y_center;
+    float brighteness;
+}Star;
+
+struct DetectedStarsInfo
+{
+    bool updated;
+    int detected_stars;
+    Star stars[64];
+};
+
+
 constexpr int ImageDataTypeToBytes(ImageDataType type)
 {
     switch (type)

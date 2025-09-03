@@ -127,7 +127,22 @@ with open(SHM_PATH, "rb") as shm_file:
                 continue
             if ID != last_id:
                 start_time = time.perf_counter()
-                
+                # try:
+                #     # You must run this script with `sudo`
+                #     bgrx_image = np.zeros((1080, 1920, 4), dtype=np.uint8)
+                #     height, width = image.shape[:2]
+                #     bgrx_image[:height, :width, 0:3] = image[:, :, 0:3] # Copy B, G, R channels
+
+                #     with open('/dev/fb0', 'wb') as fb_file:
+                #         fb_file.write(bgrx_image.tobytes())
+                #     print("Image written to framebuffer successfully.")
+                # except FileNotFoundError:
+                #     print("Error: Framebuffer device /dev/fb0 not found.")
+                # except PermissionError:
+                #     print("Error: Permission denied. You must run this script with sudo.")
+                # except Exception as e:
+                #     print(f"An error occurred: {e}")
+
                 # Encode image based on selected_format
                 if selected_format == "jpg":
                     if image.dtype == 'uint16':

@@ -25,6 +25,7 @@ import {
   Timer,
   BarChart3,
   Monitor,
+  Stars,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import mqtt from "mqtt";
@@ -92,6 +93,7 @@ export default function Index() {
   const lastImageSrcRef = useRef(null);
   const initialSetupDoneRef = useRef(false);
   const lastMotorPublish = useRef(0);
+  const stars = useRef([[2,3,1]]);
   const lastPublishedSpeeds = useRef({ ra: 0, dec: 0 });
   const [imageBuffer, setImageBuffer] = useState([]);
   const [selectedFormat, setSelectedFormat] = useState("jpg");
@@ -104,6 +106,7 @@ export default function Index() {
   const deviceIP = window.location.hostname;
   const autoDumpRef = useRef(false);
 var caputered_image_name = "UNK";
+
 const imageTypeOptions = [
   { value: 0, label: "RGB24" },
   { value: 1, label: "RAW16" },
@@ -199,6 +202,13 @@ useEffect(() => {
             console.log("Subscribed to guider/image_info");
           }
         });
+        client.subscribe('guider/detected_stars', (err) => {
+          if (err) {
+            console.error("Failed to subscribe to guider/image_info", err);
+          } else {
+            console.log("Subscribed to guider/detected_star");
+          }
+        });
       });
 
       client.on("message", (topic, message) => {
@@ -259,6 +269,15 @@ useEffect(() => {
               setCurrentExpo(data.curr_expo);
               setTotalExpo(data.final_expo);
             }
+          } catch (e) {
+            console.error('Invalid JSON message:', e);
+          }
+        }
+        if (topic === 'guider/detected_stars') {
+          try {
+            const data = JSON.parse(message.toString());
+            stars.current = data.stars;   // update ref
+            console.log(data)
           } catch (e) {
             console.error('Invalid JSON message:', e);
           }
@@ -386,10 +405,24 @@ useEffect(() => {
       }
 
       // Draw image
+      ctx.imageSmoothingEnabled = false;
+      ctx.mozImageSmoothingEnabled = false;    // Firefox
+      ctx.webkitImageSmoothingEnabled = false; // Safari
+      ctx.msImageSmoothingEnabled = false;     // IE
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
       ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
       ctx.drawImage(img, 0, 0);
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2 / zoom; // scale line width so it stays consistent when zooming
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2 / zoom; // scale line width so it stays consistent when zooming
+      console.log(stars.current)
+      stars.current.forEach(([cx, cy, area]) => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5, 0, 2 * Math.PI);  // or area if you want radius proportional
+        ctx.stroke();
+      });
       ctx.restore();
     };
 

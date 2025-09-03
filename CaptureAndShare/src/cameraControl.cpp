@@ -673,6 +673,7 @@ int cameraControl::SVB_applySetup(const cameraSetup &cam_setup)
     /*Setup output type*/
     int ret_val = 0;
     bool type_av = std::find(m_current_camera.img_data_types.begin(), m_current_camera.img_data_types.end(), cam_setup.img_data_type) != m_current_camera.img_data_types.end();
+    SVBStopVideoCapture(m_current_camera.ID);
     if (type_av)
     {
         auto SVB_type = getSVBImageTypeFromImageDataType(cam_setup.img_data_type);
@@ -752,7 +753,7 @@ int cameraControl::SVB_applySetup(const cameraSetup &cam_setup)
         /*TODO - read gain from  SVB camera*/
         ret_val = -1;
     }
-
+    SVBStartVideoCapture(m_current_camera.ID);
     return ret_val;
 }
 
