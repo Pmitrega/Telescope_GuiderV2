@@ -244,7 +244,6 @@ useEffect(() => {
               });
             // setImageBuffer((prevBuffer) => {
             //   const newBuffer = [...prevBuffer, imageEntry];
-
             //   // keep max 360 images
             //   if (newBuffer.length > 360) newBuffer.shift();
 
@@ -1179,7 +1178,7 @@ const downloadImages = async (images = null, filename = "images.zip") => {
                       Reset Zoom
                     </button>
                     <button
-                      onClick={downloadImages}
+                      onClick={() => downloadImages()}
                       disabled={imageBuffer.length === 0}
                       className="px-2 py-1 text-xs text-gray-400 bg-zinc-800 hover:bg-gray-800 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                     >
