@@ -107,6 +107,15 @@ int senderReader::setupShm() {
     setupShmFromPath(CAMERA_INFO_SHM, sizeof(SHM_cameraInfo), &m_camera_info_shm_fd, reinterpret_cast<void**>(&m_camera_info_shm_ptr));
     m_camera_info_shm_ptr->gain_min = -1;
     m_camera_info_shm_ptr->gain_max = -1;
+    /*setupShm for motor control*/
+    setupShmFromPath(MOTOR_CONTROL_SHM, sizeof(SHM_MotorControl), &m_motor_control_shm_fd, reinterpret_cast<void**>(&m_motor_control_shm_ptr));
+    m_motor_control_shm_ptr->dec_speed = MOTOR_SPEED_DONT_MODIFY;
+    m_motor_control_shm_ptr->ra_speed = MOTOR_SPEED_DONT_MODIFY;
+    m_motor_control_shm_ptr->updated = false;
+    /*setup shm for detected stars*/
+    setupShmFromPath(DETECTED_STARS_SHM, sizeof(SHM_DetectedStarsInfo), &m_detected_stars_shm_fd, reinterpret_cast<void**>(&m_detected_stars_shm_ptr));
+    m_detected_stars_shm_ptr->detected_stars = 0;
+    m_detected_stars_shm_ptr->updated = false;
     return 0;
 }
 

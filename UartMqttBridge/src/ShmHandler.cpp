@@ -41,6 +41,7 @@ ShmHandler::ShmHandler(){
     openShm(CAMERA_CONTROLS_SHM, sizeof(SHM_cameraControls) ,reinterpret_cast<void**>(&m_shm_camera_controls_ptr));
     openShm(MISC_INFO_SHM, sizeof(Misc_Info), reinterpret_cast<void**> (&m_shm_misc_info_ptr));
     openShm(CAMERA_INFO_SHM, sizeof(SHM_cameraInfo), reinterpret_cast<void**> (&m_shm_camera_info_ptr));
+    openShm(MOTOR_CONTROL_SHM, sizeof(SHM_MotorControl), reinterpret_cast<void**> (&m_shm_motor_control_ptr));
     // if(fileExists(CAMERA_CONTROLS_SHM_FULL_PATH)){
     //     m_shm_camera_controls_fd = shm_open(CAMERA_CONTROLS_SHM, O_RDWR, 0666);
     //     if(m_shm_camera_controls_fd == -1){
@@ -84,6 +85,12 @@ void ShmHandler::readMiscInfo(Misc_Info& misc_info){
 
 void ShmHandler::readCameraInfo(SHM_cameraInfo& cam_info){
     cam_info = *m_shm_camera_info_ptr;
+}
+
+void ShmHandler::readMotorCtrlReq(SHM_MotorControl& motor_ctrl_req){
+    motor_ctrl_req.ra_speed = m_shm_motor_control_ptr->ra_speed;
+    motor_ctrl_req.dec_speed = m_shm_motor_control_ptr->dec_speed;
+    motor_ctrl_req.updated = m_shm_motor_control_ptr->updated;
 }
 
 int ShmHandler::setupCameraRoi(){

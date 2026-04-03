@@ -69,6 +69,7 @@ MQTTHandler::MQTTHandler()
     }
     MQTTClient_subscribe(m_mqtt_client, "guider/camera_controls", 0);
     std::cout << "Subscribed for guider/camera_controls" << std::endl;
+
 }
 void MQTTHandler::publish(std::string topic, std::string payload){
     MQTTClient_message pubmsg = MQTTClient_message_initializer;

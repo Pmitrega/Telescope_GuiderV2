@@ -15,10 +15,6 @@
 
 #define USE_DUMMY false
 
-
-
-
-
 int main()
 {
     cameraControl cam_ctrl;
@@ -27,22 +23,25 @@ int main()
     uint64_t send_misc_it = 0;
     cameraInfo last_opened_camera;
     cameraSetup last_camera_setup;
-    if(USE_DUMMY){
+    if (USE_DUMMY)
+    {
         ImageInfo im_info = {0, 1280, 960, RAW16, NONE};
         senderReader.modifyBufferSize(im_info);
-        uint8_t* buffer;
+        uint8_t *buffer;
         std::string base_dir = "/home/orangepi/Telescope_GuiderV2/CaptureAndShare/dummy_images";
         int it = 0;
-        while (true){
+        while (true)
+        {
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            std::string img_path = base_dir + "/image0" + std::to_string(it%10) + ".raw";
+            std::string img_path = base_dir + "/image0" + std::to_string(it % 10) + ".raw";
             int fd = open(img_path.c_str(), O_RDONLY);
-            if(fd == -1){
-                std::cout <<"Failed to open file: " << img_path << std::endl;
+            if (fd == -1)
+            {
+                std::cout << "Failed to open file: " << img_path << std::endl;
                 return -1;
             }
-            void *map = mmap(NULL, 1280*960*2, PROT_READ, MAP_PRIVATE, fd, 0);
-            buffer = (uint8_t*)map;
+            void *map = mmap(NULL, 1280 * 960 * 2, PROT_READ, MAP_PRIVATE, fd, 0);
+            buffer = (uint8_t *)map;
             senderReader.setImageData(buffer);
             senderReader.sendImageData();
             std::cout << "Sending image ..." << std::endl;

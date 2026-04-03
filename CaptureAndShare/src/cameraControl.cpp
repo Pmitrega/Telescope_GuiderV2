@@ -130,6 +130,7 @@ int cameraControl::scanForCameras()
     ret_val = SVB_ScanForCameras();
     /*Scan for ZWO CAMERAS*/
     ret_val = ZWO_ScanForCameras();
+
     return ret_val;
 }
 
@@ -194,7 +195,6 @@ const cameraSetup cameraControl::getCameraSetup()
 {
     return m_current_camera_setup;
 }
-
 
 int cameraControl::setupCamera(cameraSetup cam_setup)
 {
@@ -361,7 +361,9 @@ int cameraControl::scanForImage()
         }
         // std::cerr << "Unknown producer" << m_current_camera.producer <<std::endl;
     }
-    else if (m_current_camera.producer == "DUMMY"){
+    else if (m_current_camera.producer == "DUMMY")
+    {
+
         std::this_thread::sleep_for(std::chrono::milliseconds(m_current_camera_setup.interval_ms));
     }
     return 0;
@@ -628,7 +630,7 @@ int cameraControl::ZWO_ScanForCameras()
         m_scanedCameras.back().y_res = ppASICameraInfo.MaxHeight;
         m_scanedCameras.back().mono = !ppASICameraInfo.IsColorCam;
         m_scanedCameras.back().ID = ppASICameraInfo.CameraID;
-        m_scanedCameras.back().bayer_patter = ppASICameraInfo.IsColorCam ? getImageBayerFromASI(ppASICameraInfo.BayerPattern):NONE;
+        m_scanedCameras.back().bayer_patter = ppASICameraInfo.IsColorCam ? getImageBayerFromASI(ppASICameraInfo.BayerPattern) : NONE;
         for (int i = 0; i < 8; i++)
         {
             if (ppASICameraInfo.SupportedVideoFormat[i] == ASI_IMG_END)

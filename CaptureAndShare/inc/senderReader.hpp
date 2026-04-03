@@ -30,6 +30,13 @@ class senderReader {       // The class
     SHM_cameraInfo* m_camera_info_shm_ptr = nullptr;
 
 
+    int m_motor_control_shm_fd;
+    SHM_MotorControl* m_motor_control_shm_ptr = nullptr;
+
+
+    int m_detected_stars_shm_fd;
+    SHM_DetectedStarsInfo* m_detected_stars_shm_ptr;
+    
     int m_guider_camera_setup_shm_fd;
     uint8_t* m_image_buffer = nullptr;
     int m_buffer_size = 0;

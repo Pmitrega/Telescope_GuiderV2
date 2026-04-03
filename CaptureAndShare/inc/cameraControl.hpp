@@ -35,7 +35,7 @@ public:
   int stopVideo();
   const uint8_t *getImageBuffer();
   cameraInfo getCurrentCameraInfo();
-
+  const std::vector<cameraInfo> &getAvailableCameras();
   const std::pair<int, int> getExpsureStatus();
 
 private:
@@ -57,7 +57,7 @@ private:
   int startVideoCapture();
   int stopVideoCapture();
   bool cameraAliveCheck();
-  
+
   bool m_new_img_ready = false;
   bool m_new_img_in_buffer = false;
   int m_timeout_limit;

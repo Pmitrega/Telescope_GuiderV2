@@ -62,6 +62,9 @@ export default function Index() {
   const [showLowFlux, setShowLowFlux] = useState(true);
   const [showHighFlux, setShowHighFlux] = useState(true);
   const [saveRaw, setSaveRaw] = useState(false);
+  const [trackedStar, setTrackedStar] = useState<number[] | null>(null);
+  const [setPoint, setSetPoint] = useState<number[] | null>([600, 600]);
+  const [setMode, setSetMode] = useState<'SP' | 'TS'>('SP');
   const [selectedAlgorithm, setSelectedAlgorithm] = useState("PID Controller");
   const [guideEnabled, setGuideEnabled] = useState(false);
   const [pidP, setPidP] = useState("1.2");
@@ -103,6 +106,11 @@ export default function Index() {
   const [exposure_range, setExpoRange] = useState([64,2000000000]);
   const [av_image_types, setImageTypes] = useState([0,1,2,3,4]);
   const [autoDump, setAutoDump] = useState(false);
+  const [currentRA, setCurrentRA] = useState(0);
+  const [currentDEC, setCurrentDEC] = useState(0);
+  const [raInput, setRAInput] = useState("0");
+  const [decInput, setDECInput] = useState("0");
+  const [decReversed, setDecReversed] = useState(false);
   const deviceIP = window.location.hostname;
   const autoDumpRef = useRef(false);
 var caputered_image_name = "UNK";
@@ -114,6 +122,27 @@ const imageTypeOptions = [
   { value: 3, label: "Y8" },
   { value: 4, label: "Y16" }
 ];
+
+  // Convert decimal degrees to HMS (Hours, Minutes, Seconds)
+  // RA is typically in range 0-360 degrees, displayed as 0-24 hours
+  const degreesToHMS = (degrees: number): string => {
+    const hours = degrees / 15; // 360 degrees = 24 hours, so 1 hour = 15 degrees
+    const h = Math.floor(hours);
+    const remaining_m = (hours - h) * 60;
+    const m = Math.floor(remaining_m);
+    const s = (remaining_m - m) * 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s.toFixed(1)).padStart(4, '0')}`;
+  };
+
+  // Convert decimal degrees to DMS (Degrees, Minutes, Seconds)
+  const degreesToDMS = (degrees: number): string => {
+    const d = Math.floor(Math.abs(degrees));
+    const remaining_m = (Math.abs(degrees) - d) * 60;
+    const m = Math.floor(remaining_m);
+    const s = (remaining_m - m) * 60;
+    const sign = degrees < 0 ? '-' : '+';
+    return `${sign}${String(d).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s.toFixed(1)).padStart(4, '0')}`;
+  };
 
   const ProgressBar = ({ current_expo, total_expo }) => {
     const percentage = Math.min(Math.floor((current_expo / total_expo) * 100), 100);
@@ -209,6 +238,20 @@ useEffect(() => {
             console.log("Subscribed to guider/detected_star");
           }
         });
+        client.subscribe('guider/tracked_star', (err) => {
+          if (err) {
+            console.error("Failed to subscribe to guider/tracked_star", err);
+          } else {
+            console.log("Subscribed to guider/tracked_star");
+          }
+        });
+        client.subscribe('guider/set_position', (err) => {
+          if (err) {
+            console.error("Failed to subscribe to guider/set_position", err);
+          } else {
+            console.log("Subscribed to guider/set_position");
+          }
+        });
       });
 
       client.on("message", (topic, message) => {
@@ -277,6 +320,24 @@ useEffect(() => {
             const data = JSON.parse(message.toString());
             stars.current = data.stars;   // update ref
             console.log(data)
+          } catch (e) {
+            console.error('Invalid JSON message:', e);
+          }
+        }
+        if (topic === 'guider/tracked_star') {
+          try {
+            const data = JSON.parse(message.toString());
+            setTrackedStar(data.tracked_star); // [x, y]
+          } catch (e) {
+            console.error('Invalid JSON message:', e);
+          }
+        }
+        if (topic === 'guider/set_position') {
+          console.log("Recievd set point message")
+          console.log(message.toString())
+          try {
+            const data = JSON.parse(message.toString());
+            setSetPoint(data.set_position); // [x, y]
           } catch (e) {
             console.error('Invalid JSON message:', e);
           }
@@ -419,9 +480,30 @@ useEffect(() => {
       console.log(stars.current)
       stars.current.forEach(([cx, cy, area]) => {
         ctx.beginPath();
-        ctx.arc(cx, cy, 5, 0, 2 * Math.PI);  // or area if you want radius proportional
+        ctx.arc(cx+1, cy+1, 5, 0, 2 * Math.PI);  // or area if you want radius proportional
+        if (trackedStar && trackedStar[0] === cx && trackedStar[1] === cy) {
+          ctx.strokeStyle = "blue";
+        } else {
+          ctx.strokeStyle = "red";
+        }
         ctx.stroke();
       });
+
+      if (setPoint && setPoint.length >= 2) {
+        const [sx, sy] = setPoint;
+        const crossSize = 25; // half-length for 50x50 total
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2 / zoom;
+
+        // draw target cross
+        ctx.beginPath();
+        ctx.moveTo(sx - crossSize, sy);
+        ctx.lineTo(sx + crossSize, sy);
+        ctx.moveTo(sx, sy - crossSize);
+        ctx.lineTo(sx, sy + crossSize);
+        ctx.stroke();
+      }
+
       ctx.restore();
     };
 
@@ -437,6 +519,13 @@ useEffect(() => {
     }
     console.log("Published format")
   }, [selectedFormat, mqttClient]);
+  useEffect(() => {
+    if (mqttClient?.connected) {
+      var data = {"ra_speed":ra_speed_slider[0], "dec_speed": dec_speed_slider[0]};
+      mqttClient.publish("guider/motor_speed", JSON.stringify(data));
+    }
+    console.log("Published speeds")
+  }, [ra_speed_slider, dec_speed_slider, mqttClient]);
   useEffect(() => {
   // If the current selection is no longer available, pick the first available type
   if (!av_image_types.includes(cameraImageType) && av_image_types.length > 0) {
@@ -564,6 +653,17 @@ const downloadImages = async (images = null, filename = "images.zip") => {
   const content = await zip.generateAsync({ type: "blob" });
   saveAs(content, filename);
 };
+
+  // Update RA/DEC positions every second by integrating speeds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentRA((prevRA) => prevRA + (ra_speed_slider[0]/3600 || 0) + 15/3600); // add 15 arcsec/hr to simulate sidereal tracking
+      setCurrentDEC((prevDEC) => prevDEC + (decReversed ? -(dec_speed_slider[0]/3600 || 0) : (dec_speed_slider[0]/3600 || 0)));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [ra_speed_slider, dec_speed_slider, decReversed]);
+
   const handleSetup = () => {
     const now = Date.now();
 
@@ -617,6 +717,34 @@ const downloadImages = async (images = null, filename = "images.zip") => {
 
     if (imgX >= 0 && imgX <= width && imgY >= 0 && imgY <= height) {
       console.log(`Clicked on image at original coords: (${imgX.toFixed(2)}, ${imgY.toFixed(2)})`);
+      
+      if (!mqttClient || !mqttClient.connected) {
+        console.warn("MQTT client not connected, cannot publish set/tracked requests");
+        return;
+      }
+
+      if (setMode === "SP") {
+        const reqData = { req_star: [imgX, imgY] };
+        const jsonString = JSON.stringify(reqData);
+        mqttClient.publish("guider/set_position_req", jsonString, (err) => {
+          if (err) {
+            console.error("Failed to publish set position request:", err);
+          } else {
+            console.log("Set position request sent:", jsonString);
+          }
+        });
+      } else {
+        // TS mode: publish click position to tracked star request
+        const reqData = { req_star: [imgX, imgY] };
+        const jsonString = JSON.stringify(reqData);
+        mqttClient.publish("guider/tracked_star_req", jsonString, (err) => {
+          if (err) {
+            console.error("Failed to publish tracked star request:", err);
+          } else {
+            console.log("Tracked star request sent:", jsonString);
+          }
+        });
+      }
     } else {
       console.log("Clicked outside image boundaries");
     }
@@ -744,7 +872,7 @@ const downloadImages = async (images = null, filename = "images.zip") => {
                           onValueChange={handleRASpeedChange}
                           max={500}
                           min={-500}
-                          step={10}
+                          step={1}
                           className="w-full bg-gray-700 h-1 rounded"
                         />
                       </div>
@@ -763,7 +891,7 @@ const downloadImages = async (images = null, filename = "images.zip") => {
                           onValueChange={handleDecSpeedChange}
                           max={500}
                           min={-500}
-                          step={10}
+                          step={1}
                           className="w-full"
                         />
                       </div>
@@ -915,6 +1043,7 @@ const downloadImages = async (images = null, filename = "images.zip") => {
                 </Tabs>
               </CardContent>
             </Card>
+            
 
             {/* Camera Settings */}
             <Card className="bg-zinc-900 text-gray-400 border-gray-600 shadow-sm">
@@ -970,6 +1099,130 @@ const downloadImages = async (images = null, filename = "images.zip") => {
                     className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* RA/DEC Position Tracking */}
+            <Card className="bg-zinc-900 text-gray-400 border-gray-600 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-gray-400">
+                  RA/DEC Position
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-400">Current RA</Label>
+                  <div className="space-y-1">
+                    <Input
+                      value={degreesToHMS(currentRA)}
+                      readOnly
+                      className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
+                    />
+                    <div className="text-xs text-gray-500">
+                      {currentRA.toFixed(4)}° ({currentRA * 3600}″)
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-400">Set RA (degrees)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      pattern="[0-9.-]*"
+                      value={raInput}
+                      onChange={(e) => setRAInput(e.target.value)}
+                      className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500 flex-1"
+                      placeholder="0"
+                    />
+                    <Button
+                      onClick={() => {
+                        const val = parseFloat(raInput);
+                        if (!isNaN(val)) setCurrentRA(val);
+                      }}
+                      size="sm"
+                      className="h-7 px-3 text-xs"
+                    >
+                      Set
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-400">Current DEC</Label>
+                  <div className="space-y-1">
+                    <Input
+                      value={degreesToDMS(currentDEC)}
+                      readOnly
+                      className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500"
+                    />
+                    <div className="text-xs text-gray-500">
+                      {currentDEC.toFixed(4)}° ({currentDEC * 3600}″)
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-400">Set DEC (degrees)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      pattern="[0-9.-]*"
+                      value={decInput}
+                      onChange={(e) => setDECInput(e.target.value)}
+                      className="h-7 text-xs border-gray-600 text-zinc-800 bg-gray-500 flex-1"
+                      placeholder="0"
+                    />
+                    <Button
+                      onClick={() => {
+                        const val = parseFloat(decInput);
+                        if (!isNaN(val)) setCurrentDEC(val);
+                      }}
+                      size="sm"
+                      className="h-7 px-3 text-xs"
+                    >
+                      Set
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                  <div className="bg-zinc-800 p-2 rounded border border-gray-600">
+                    <div className="text-gray-500">RA Speed</div>
+                    <div className="text-green-400 font-mono">{ra_speed_slider[0] || 0}"/s</div>
+                  </div>
+                  <div className="bg-zinc-800 p-2 rounded border border-gray-600">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-gray-500">DEC Speed</span>
+                      <Button
+                        onClick={() => setDecReversed(!decReversed)}
+                        size="sm"
+                        variant={decReversed ? "default" : "outline"}
+                        className="h-5 px-2 text-[10px]"
+                        title="Reverse DEC direction"
+                      >
+                        {decReversed ? "↓" : "↑"}
+                      </Button>
+                    </div>
+                    <div className="text-green-400 font-mono">{decReversed ? "-" : ""}{Math.abs(dec_speed_slider[0] || 0)}"/s</div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    setCurrentRA(0);
+                    setCurrentDEC(0);
+                    setRAInput("0");
+                    setDECInput("0");
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs h-7 mt-3 text-gray-400 bg-zinc-800 hover:bg-gray-800"
+                >
+                  Reset Position
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -1169,6 +1422,26 @@ const downloadImages = async (images = null, filename = "images.zip") => {
                           }`}
                       >
                         PNG
+                      </button>
+
+                      <button
+                        onClick={() => setSetMode("SP")}
+                        className={`px-3 py-1 text-xs rounded border border-gray-600 ${setMode === "SP"
+                            ? "text-gray-400 bg-blue-700"
+                            : "text-gray-600 bg-zinc-800 hover:bg-gray-700"
+                          }`}
+                      >
+                        SP
+                      </button>
+
+                      <button
+                        onClick={() => setSetMode("TS")}
+                        className={`px-3 py-1 text-xs rounded border border-gray-600 ${setMode === "TS"
+                            ? "text-gray-400 bg-blue-700"
+                            : "text-gray-600 bg-zinc-800 hover:bg-gray-700"
+                          }`}
+                      >
+                        TS
                       </button>
                     </div>
                     <button

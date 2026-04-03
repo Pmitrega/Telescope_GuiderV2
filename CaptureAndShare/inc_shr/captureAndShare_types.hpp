@@ -2,6 +2,7 @@
 #define CAPTURE_AND_SHARE_TYPES_H
 
 #include <utility>
+#include <math.h>
 #define IMAGE_SHM "/guider_image"
 #define IMAGE_SHM_FULL_PATH "/dev/shm" IMAGE_SHM
 
@@ -14,6 +15,13 @@
 #define CAMERA_INFO_SHM "/camera_info"
 #define CAMERA_INFO_SHM_FULL_PATH "/dev/shm" CAMERA_INFO
 
+#define MOTOR_CONTROL_SHM "/motor_control"
+#define MOTOR_CONTROL_SHM_FULL_PATH "/dev/shm" MOTOR_CONTROL_SHM
+
+#define DETECTED_STARS_SHM "/detected_stars"
+#define DETECTED_STARS_SHM_FULL_PATH "/dev/shm" DETECTED_STARS_SHM
+
+#define MOTOR_SPEED_DONT_MODIFY INFINITY
 
 enum ImageDataType
 {
@@ -120,12 +128,18 @@ typedef struct Star{
     float brighteness;
 }Star;
 
-struct DetectedStarsInfo
+typedef struct SHM_DetectedStarsInfo
 {
     bool updated;
     int detected_stars;
     Star stars[64];
-};
+}SHM_DetectedStarsInfo;
+
+typedef struct SHM_MotorControl{
+    bool updated;
+    float ra_speed;
+    float dec_speed;
+}SHM_MotorControl;
 
 
 constexpr int ImageDataTypeToBytes(ImageDataType type)

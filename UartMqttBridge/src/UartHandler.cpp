@@ -5,18 +5,21 @@
 #include "UartHandler.hpp"
 #include <iostream>
 
-int initUart()
+
+#define STPPS_TO_SECPS(STEP_PER_SEC) ((int)(STEP_PER_SEC * 144.f / 15.f))
+
+int UartHandler::initUart()
 {
     const char device[] = "/dev/ttyS5";
-    int fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
-    if (fd < 0)
+    m_uart_fd = open(device, O_RDWR | O_NOCTTY | O_SYNC);
+    if (m_uart_fd < 0)
     {
         perror("open");
         return 1;
     }
     std::cout << "initalizing UART" << std::endl;
     struct termios tty;
-    tcgetattr(fd, &tty);
+    tcgetattr(m_uart_fd, &tty);
 
     cfsetospeed(&tty, B115200);
     cfsetispeed(&tty, B115200);
@@ -31,10 +34,37 @@ int initUart()
     tty.c_oflag = 0;
     tty.c_iflag &= ~(IXON | IXOFF | IXANY);
 
-    tcsetattr(fd, TCSANOW, &tty);
+    tcsetattr(m_uart_fd, TCSANOW, &tty);
 
-    write(fd, "Hello UART\n", 11);
-
-    close(fd);
+    write(m_uart_fd, "Hello UART\n", 11);
+    
     return 0;
+}
+UartHandler::~UartHandler(){
+    if(m_uart_fd != -1){
+        close(m_uart_fd);
+    }
+}
+
+void UartHandler::setRaSpeed(float ra_speed){
+    int mess_len;
+    mess_len = sprintf(m_tx_buffer, "-R%d\n", STPPS_TO_SECPS(ra_speed));
+    int ret = write(m_uart_fd, m_tx_buffer, mess_len);
+    if(ret == -1){
+        std::cerr<< "Failed to send uart message" << std::endl;
+        return;
+    }
+    std::cout<< "setting Ra speed " << m_tx_buffer << std::endl;
+}
+
+void UartHandler::setDecSpeed(float dec_speed){
+    int mess_len;
+    mess_len = sprintf(m_tx_buffer, "-D%d\n", STPPS_TO_SECPS(dec_speed));
+    write(m_uart_fd, m_tx_buffer, mess_len);
+    int ret = write(m_uart_fd, m_tx_buffer, mess_len);
+    if(ret == -1){
+        std::cerr<< "Failed to send uart message" << std::endl;
+        return;
+    }
+    std::cout<< "setting Dec speed " << m_tx_buffer << std::endl;
 }

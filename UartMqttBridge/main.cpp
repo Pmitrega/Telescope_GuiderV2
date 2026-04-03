@@ -14,6 +14,7 @@
 #define LOOP_SLEEP_MS 5
 #define UPDATE_MISC_IT_MAX (250 / LOOP_SLEEP_MS)
 #define UPDATE_CAM_INFO_IT_MAX (500 / LOOP_SLEEP_MS)
+#define UPDATE_MOTOR_SPEED_IT_MAX (50 / LOOP_SLEEP_MS)
 
 void initializeMessages(std::vector<MessFromMQTT> *mess_from_mqtt, std::vector<MessFromUART> *mess_from_uart)
 {
@@ -73,14 +74,17 @@ void destroyMessages(std::vector<MessFromMQTT> *mess_from_mqtt, std::vector<Mess
 
 int main()
 {
-    initUart();
+    UartHandler uartHandler;
+    uartHandler.initUart();
     uint64_t update_misc_it = 0;
     uint64_t update_cam_info_it = 0;
+    uint64_t update_motor_speed_info_it = 0;
     std::vector<MessFromMQTT> mess_from_MQTT;
     std::vector<MessFromUART> mess_from_UART;
     ShmHandler shmHandler;
     Misc_Info misc_info;
     SHM_cameraInfo cam_info;
+    SHM_MotorControl motor_controls;
     initializeMessages(&mess_from_MQTT, &mess_from_UART);
     nlohmann::json j;
     // Example usage:
@@ -118,6 +122,25 @@ int main()
                     shmHandler.setupCameraDataType(dat_type);
                 }
             }
+            else if (mqtt_message.topic == "guider/motor_speed")
+            {
+                nlohmann::json j = nlohmann::json::parse(mqtt_message.payload);
+                int contains = 0;
+                if (j.contains("ra_speed"))
+                {
+                    uartHandler.setRaSpeed(static_cast<float>(j["ra_speed"]));    
+                    contains++;
+                }
+                if (j.contains("dec_speed"))
+                {
+                    uartHandler.setDecSpeed(static_cast<float>(j["dec_speed"]));    
+                    contains++;
+                }
+                if(contains == 0){
+                    std::cerr << "Message does not have ra_speed or dec_speed" << std::endl;
+                }
+            }
+            
         }
 
         if (update_misc_it % UPDATE_MISC_IT_MAX == 0)
@@ -155,6 +178,15 @@ int main()
             message += "\"patt\": "  + std::to_string(cam_info.patt);
             message += "}";
             mqtt_hander.publish("guider/camera_info", message);
+        }
+
+        if(update_motor_speed_info_it % UPDATE_MOTOR_SPEED_IT_MAX == 0){
+
+            shmHandler.readMotorCtrlReq(motor_controls);
+            if(motor_controls.updated){
+                uartHandler.setRaSpeed(motor_controls.ra_speed);
+                uartHandler.setDecSpeed(motor_controls.dec_speed);
+            }
         }
         update_misc_it += 1;
         update_cam_info_it +=1;

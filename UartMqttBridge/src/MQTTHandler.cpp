@@ -73,6 +73,8 @@ MQTTHandler::MQTTHandler(std::vector<MessFromMQTT>* from_mqtt_messages,
     }
     MQTTClient_subscribe(m_mqtt_client, "guider/camera_controls", 0);
     std::cout << "Subscribed for guider/camera_controls" << std::endl;
+    MQTTClient_subscribe(m_mqtt_client, "guider/motor_speed", 0);
+    std::cout << "Subscribed for guider/motor_speed" << std::endl;
 }
 void MQTTHandler::publish(std::string topic, std::string payload){
     MQTTClient_message pubmsg = MQTTClient_message_initializer;
