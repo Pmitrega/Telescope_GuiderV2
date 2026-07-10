@@ -267,7 +267,7 @@ int main()
                     list_json["cameras"].push_back(cam_json);
                 }
 
-                mqtt_hander.publish(                mosquitto_sub -h localhost -t "guider/camera_list", list_json.dump());
+                mqtt_hander.publish("guider/camera_list", list_json.dump());
             }
         }
 
