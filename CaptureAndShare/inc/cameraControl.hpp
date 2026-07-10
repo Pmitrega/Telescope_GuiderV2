@@ -28,6 +28,7 @@ public:
   int scanForCameras();
   int openFirstAvaible();
   int openByID(int ID);
+  int closeCamera();
   bool cameraOpened() { return m_camera_opened; };
   int setupCamera(cameraSetup cam_setup);
   const cameraSetup getCameraSetup();
@@ -42,7 +43,9 @@ private:
   /*SVB SPECIFIC*/
   int SVB_ScanForCameras();
   int SVB_applySetup(const cameraSetup &cam_setup);
+  int DUMMY_applySetup(const cameraSetup &cam_setup);
   /*ZWO SPECIFIC*/
+  int DUMMY_ScanForCameras();
   int ZWO_ScanForCameras();
   int ASI_applySetup(const cameraSetup &cam_setup);
   //-----------
@@ -66,6 +69,8 @@ private:
   cameraInfo m_current_camera;
   cameraSetup m_current_camera_setup;
   uint8_t *m_image_buffer = nullptr;
+  u_int64_t dummy_it = 0;
+  u_int64_t last_dummy_it = -1;
   int m_image_buffer_size = 0;
 };
 

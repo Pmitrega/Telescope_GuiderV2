@@ -6,7 +6,7 @@ LOCAL_DIR="$SCRIPT_DIR"
 
 # Orange Pi user and IP address
 REMOTE_USER="orangepi"
-REMOTE_HOST="192.168.1.62"
+REMOTE_HOST="192.168.18.203"
 
 # Remote directory on Orange Pi
 REMOTE_DIR="/home/orangepi"

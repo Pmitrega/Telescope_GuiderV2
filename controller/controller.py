@@ -3,7 +3,11 @@ import math
 import paho.mqtt.client as mqtt
 import time
 from enum import Enum
-
+from pathlib import Path
+from datetime import datetime
+import csv
+import numpy as np
+import identification
 
 STAR_LOC_TOPIC = "guider/detected_stars"
 TRACKED_STAR_TOPIC = "guider/tracked_star"
@@ -11,6 +15,9 @@ SET_POSITION_TOPIC = "guider/set_position"
 SET_POSITION_REQ_TOPIC = "guider/set_position_req"
 TRACKING_ERROR_TOPIC = "guider/tracking_error"
 TRACKED_STAR_REQ_TOPIC = "guider/tracked_star_req"
+
+GUIDER_MODE_REQ_TOPIC = "guider/mode_req"
+
 MQTT_BROKER = "localhost"  # Change if remote
 MQTT_PORT = 1883
 
@@ -18,6 +25,7 @@ MQTT_PORT = 1883
 class requestList:
     def __init__(self, runCalibration = False, ):
         self.runCalibration = runCalibration
+
 
 class Star:
     def __init__(self, x_pos:float, y_pos:float):
@@ -32,6 +40,52 @@ class Star:
         dx = self.x_pos - other_star.x_pos
         dy = self.y_pos - other_star.y_pos
         return math.sqrt(dx**2 + dy**2)
+
+class StarLogger:
+    def __init__(self, log_dir="logs"):
+        self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
+        self.file = None
+        self.writer = None
+
+        self._create_new_file()
+
+    def _create_new_file(self):
+        filename = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.csv")
+
+        self.file = open(filename, "w", newline="")
+        self.writer = csv.writer(self.file)
+
+        self.writer.writerow([
+            "date",
+            "time",
+            "x_pos",
+            "y_pos",
+            "ra_speed",
+            "dec_speed"
+        ])
+
+        print(f"Logging to {filename}")
+
+    def log(self, star, ra_speed, dec_speed):
+        now = datetime.now()
+
+        self.writer.writerow([
+            now.strftime("%Y-%m-%d"),
+            now.strftime("%H:%M:%S"),
+            star.x_pos,
+            star.y_pos,
+            ra_speed,
+            dec_speed
+        ])
+
+        self.file.flush()
+
+    def close(self):
+        if self.file:
+            self.file.close()
+
 
 class StarList:
     def __init__(self):
@@ -122,28 +176,64 @@ class ControllerMode(Enum):
     MANUAL = 1
     AUTO = 2
     GOTO = 3
+    IDENTIFICATION = 4
 
 class Controller:
     def __init__(self, mqtt_client: mqtt.Client):
         self.mqtt_client = mqtt_client
         self.star_list = StarList()
         self.set_point = None
-        self.ra_pos = 106.645654
-        self.dec_pos = 25.00
+        self.ra_pos = 129.226379
+        self.dec_pos = 27.406087
         self.ra_speed = 0
         self.dec_speed = 0
         self.__earth_rot_speed = 15/3600
-        self.mode = ControllerMode.GOTO
+        self.mode = ControllerMode.AUTO
         self.first_run = True
+        self.logger = StarLogger()
+        self.ra_target = 130.07466
+        self.dec_target = 28
+        self.goto_speed = 300
 
-        self.ra_target = 106.900000
-        self.dec_target = 22.900000
-        self.goto_speed = 100
+
+
+        self.identifier = None
+        self.identification_start_ts = None
+        self.identification_ctn_off = 0
+        self.identification_ctn_on = 0
+        self.identification_ctn_backlash_removal = 0
+        ### In format x, y, timestamp in seconds.
+        self.ident_buffer_off = []
+        self.ident_buffer_on  = []
+
+        data = None
+
+        with open("config.json") as f:
+            data = json.load(f)
+
+        self.mode = ControllerMode[data["mode"]]
+        self.off_pixel_speed = np.array(data["off_pixel_speed"]).reshape(-1, 1)
+        self.on_pixel_speed = np.array(data["on_pixel_speed"]).reshape(-1, 1)
+        self.sec_per_pix = data["sec_per_pix"]
+        self.set_point = data["set_point"]
+
+        print("Last identification results:")
+        print(f"mode: {self.mode.name}")
+        print(f"sec per pixel: {self.sec_per_pix}")
+
+        print(f"off pixel speed: {self.off_pixel_speed}")
+        print(f"on pixel speed: {self.on_pixel_speed}")
+        if (self.off_pixel_speed[0] !=0):
+            self.identifier = identification.Indentifer(self.off_pixel_speed * self.sec_per_pix, self.on_pixel_speed * self.sec_per_pix)
+            print(self.identifier.getTelCtrlMatrix(4.1))
+
+        mot_ra_speed_vect = None
+        mot_dec_speed_vect = None
 
         self.dead_zone = 0.25
 
     def __update_sky_pos(self, time_diff_s):
-        self.ra_pos = self.ra_pos + (self.ra_speed/3600  + self.__earth_rot_speed) * time_diff_s % 360
+        self.ra_pos = (self.ra_pos + (self.ra_speed/3600 + self.__earth_rot_speed) * time_diff_s) % 360
         self.dec_pos = self.dec_pos + self.dec_speed/3600 * time_diff_s
 
     def set_sky_position(self, ra_pos, dec_pos):
@@ -152,33 +242,168 @@ class Controller:
 
     def _get_move_sign(self, tar, cur):
         diff = tar - cur
-        if diff < 0:
+        if diff < 0:   
+
+            
             return -1
         elif diff > 0:
             return 1
         else:
             return 0
+        
+    def average_speed_fit(self, points):
+        """
+        points: Nx3 array [x_pos, y_pos, timestamp]
+
+        Returns:
+            vx, vy
+        """
+        points = np.asarray(points)
+
+        x = points[:, 0]
+        y = points[:, 1]
+        t = points[:, 2]
+
+        # Shift time to start at zero for numerical stability
+        t_sec = t - t[0]
+
+        vx, _ = np.polyfit(t_sec, x, 1)
+        vy, _ = np.polyfit(t_sec, y, 1)
+
+        return vx, vy
+    
+    def _gotoHandler(self):
+        ra_dir = self._get_move_sign(self.ra_target, self.ra_pos) * (abs(self.ra_target - self.ra_pos) > self.dead_zone)
+        dec_dir = self._get_move_sign(self.dec_target, self.dec_pos) * (abs(self.dec_target - self.dec_pos) > self.dead_zone)
+        self.setSpeeds(ra_dir * self.goto_speed, dec_dir * self.goto_speed)
+
+    def _identificationHandler(self):
+            tracked_star = self.star_list.getTrackedStar()
+            # Shutdown motor, get start timestamp
+            if(self.identification_ctn_off == 0):
+                self.identification_start_ts = time.time()
+                print("Starting identification ...")
+            # wait for 20 iteration with motors turned off
+            if(self.identification_ctn_off  < 20):
+                print(f"Motors off ...{self.identification_ctn_off}")
+                self.setSpeeds(0, 0)
+                self.identification_ctn_off = self.identification_ctn_off + 1
+                self.ident_buffer_off.append([tracked_star.x_pos, tracked_star.y_pos, time.time() - self.identification_start_ts])
+
+            # To eliminate backlash switch on motor
+            elif(self.identification_ctn_backlash_removal < 5):
+                self.setSpeeds(-20, 0)
+                self.identification_ctn_backlash_removal = self.identification_ctn_backlash_removal + 1
+            # Now set speed to be equal earth rotation
+            elif(self.identification_ctn_on < 20):
+                print(f"Motors on ...{self.identification_ctn_on}")
+                self.setSpeeds(-15, 0)
+                self.identification_ctn_on = self.identification_ctn_on + 1
+                self.ident_buffer_on.append([tracked_star.x_pos, tracked_star.y_pos, time.time() - self.identification_start_ts])
+            # when all steps has been completed fit point to linear function to get pixel/s when motor is off and on
+            else:
+                vx, vy = self.average_speed_fit(self.ident_buffer_off)
+                self.off_pixel_speed = [[vx], [vy]]
+                arr_on = np.array([vx, vy])
+
+                vx, vy = self.average_speed_fit(self.ident_buffer_on)
+
+                self.on_pixel_speed = [vx, vy]
+                arr_off = np.array([[vx], [vy]])
+                # Save updated values
+                with open("config.json", "r") as f:
+                    data = json.load(f)
+
+                data["off_pixel_speed"] = self.off_pixel_speed
+                data["on_pixel_speed"] = self.on_pixel_speed
+                data["mode"] = "AUTO"
+
+                with open("config.json", "w") as f:
+                    json.dump(data, f, indent=4)
+
+                print("---------------motor off positions --------------")
+                for i in range(len(self.ident_buffer_off)):
+                    print(self.ident_buffer_off[i])
+                print("---------------motor on positions --------------")
+                for i in range(len(self.ident_buffer_on)):
+                    print(self.ident_buffer_on[i])
+
+                print("Identified speeds:")
+                print(f"V off: vx = {self.off_pixel_speed[0]}, vy = {self.off_pixel_speed[1]}")
+                print(f"V on: vx = {self.on_pixel_speed[0]}, vy = {self.on_pixel_speed[1]}")
+
+                self.identifier = identification.Indentifer(arr_off * self.sec_per_pix, arr_on * self.sec_per_pix)
+
+                print("Open Loop control: Ra/Dec", self.identifier.getOpenLoopCtr())
+
+                """Clear identification buffers"""
+                self.identification_ctn_off = 0
+                self.identification_ctn_on = 0
+                self.ident_buffer_off = []
+                self.ident_buffer_on = []
+                
+
+                """ If identification is complete shange mode to auto"""
+                self.setSetPoint(tracked_star.x_pos, tracked_star.y_pos)
+                self.mode = ControllerMode.AUTO
 
     def controllerUpdate(self, star_list: str):
         if self.first_run:
-            self.setSpeeds(0, 0)
+            self.setSpeeds(-15, 0)
             self.first_run = False
         self.star_list.updateStarList(star_list)
         self.star_list.updateTrackedStar()
         self.__update_sky_pos(0.5)
-        print(self.getSetPoint())
-        print(self.ra_pos, " ", self.dec_pos)
+        # print(self.getSetPoint())
+        # print(self.ra_pos, " ", self.dec_pos)
         tracked_star = self.star_list.getTrackedStar()
         if tracked_star is not None:
             publishTrackedStar(tracked_star, client)
+            self.logger.log(tracked_star, self.ra_speed, self.dec_speed)
+            print(tracked_star)
 
-        if self.mode == ControllerMode.GOTO:
-            ra_dir = self._get_move_sign(self.ra_target, self.ra_pos) * (abs(self.ra_target - self.ra_pos) > self.dead_zone)
-            dec_dir = self._get_move_sign(self.dec_target, self.dec_pos) * (abs(self.dec_target - self.dec_pos) > self.dead_zone)
-            distance_ra = self.ra_target - self.ra_pos
-            distance_dec = self.dec_target - self.dec_speed
+    
+        if self.mode == ControllerMode.MANUAL:
+            #Do nothing
+            pass
+        elif self.mode == ControllerMode.GOTO:
+            self._gotoHandler()  
+        elif tracked_star is not None and self.mode == ControllerMode.IDENTIFICATION:
+            self._identificationHandler()
+        elif self.mode == ControllerMode.AUTO:
+            if(self.set_point != 0) and tracked_star is not None:
+                self.error =  np.array([tracked_star.x_pos, tracked_star.y_pos]) - np.array(self.set_point)
+                self.error = self.error.reshape(-1, 1)
+                self.ra_dec_ctrl = self.identifier.getTelCtrlMatrix(self.sec_per_pix) @ self.error
+                print("ra_dec_ctrl")
+                print(self.ra_dec_ctrl)
+                self.gain = 0.1
+                ra_ctrl = self.ra_dec_ctrl[0][0] * self.gain
+                dec_ctrl = self.ra_dec_ctrl[1][0] * self.gain
+                
+                print(self.error)
+                print("ra_ctrl")
+                print(ra_ctrl)
+                print("dec_ctrl")
+                print(dec_ctrl)
 
-            self.setSpeeds(ra_dir * self.goto_speed, dec_dir * self.goto_speed)
+                if (ra_ctrl > 30):
+                    ra_ctrl = 30
+                elif (ra_ctrl < -30):
+                    ra_ctrl = -30
+                
+                if (dec_ctrl > 20):
+                    dec_ctrl = 20
+                elif (dec_ctrl < -20):
+                    dec_ctrl = -20
+
+                self.setSpeeds(ra_ctrl, dec_ctrl)
+            
+            # ra_dir = self._get_move_sign(self.ra_target, self.ra_pos) * (abs(self.ra_target - self.ra_pos) > self.dead_zone)
+            # dec_dir = self._get_move_sign(self.dec_target, self.dec_pos) * (abs(self.dec_target - self.dec_pos) > self.dead_zone)
+            # distance_ra = self.ra_target - self.ra_pos
+            # distance_dec = self.dec_target - self.dec_speed
+            # self.setSpeeds(ra_dir * self.goto_speed, dec_dir * self.goto_speed)
 
         
 

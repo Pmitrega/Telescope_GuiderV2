@@ -23,6 +23,9 @@ int main()
     uint64_t send_misc_it = 0;
     cameraInfo last_opened_camera;
     cameraSetup last_camera_setup;
+
+    int current_camera_id = -1;
+
     if (USE_DUMMY)
     {
         ImageInfo im_info = {0, 1280, 960, RAW16, NONE};
@@ -53,13 +56,29 @@ int main()
         /*Camera disconnection handling ...*/
         if (cam_ctrl.cameraOpened() == false)
         {
+
             cam_ctrl.stopVideo();
             cam_ctrl.scanForCameras();
-            if (cam_ctrl.openFirstAvaible() == -1)
+            int req_cam_id = senderReader.checkForRequestedCameraId();
+            std::cout << "trying to open new camera ...  req_id: " << req_cam_id << std::endl;
+            int open_success = -1;
+            if (req_cam_id == -1)
+            {
+                open_success = cam_ctrl.openByID(0);
+                senderReader.updateCameraId(0);
+            }
+            else
+            {
+                open_success = cam_ctrl.openByID(req_cam_id);
+            }
+
+            if (open_success == -1)
             {
                 std::this_thread::sleep_for(std::chrono::seconds(NO_CAMERA_SLEEP_SEC));
                 continue;
             }
+            current_camera_id = req_cam_id;
+            senderReader.updateCameraList(cam_ctrl.getAvailableCameras(), req_cam_id);
             auto cam_info = cam_ctrl.getCurrentCameraInfo();
             senderReader.sendCameraInfo(cam_info);
             if (cam_info.cameraName == last_opened_camera.cameraName)
@@ -97,6 +116,14 @@ int main()
             std::cout << "Sending..." << std::endl;
         }
 
+        int req_cam_id = senderReader.checkForRequestedCameraId();
+        if (req_cam_id != current_camera_id)
+        {
+            std::cout << "New camera requested..., curr id:" << current_camera_id << " req id: " << req_cam_id << std::endl;
+            cam_ctrl.closeCamera();
+            continue;
+        }
+
         if (senderReader.newSetupRequested(&cam_setup) == true)
         {
             cam_ctrl.stopVideo();
@@ -114,6 +141,7 @@ int main()
 
             cam_ctrl.startVideo();
         }
+
         if (send_misc_it % SEND_MISC_IT_MAX == 0)
         {
             auto expo_status = cam_ctrl.getExpsureStatus();

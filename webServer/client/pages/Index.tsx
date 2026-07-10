@@ -82,6 +82,8 @@ export default function Index() {
   const [cameraExposure, setCameraExposure] = useState("-1");
   const [cameraInterval, setCameraInterval] = useState("-1");
   const [cameraImageType, setCameraImageType] = useState(0); // default to RGB24
+  const [cameraListOptions, setCameraListOptions] = useState<{ value: string; label: string; available: boolean }[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState("0");
   const [mqttClient, setMqttClient] = useState<mqtt.MqttClient | null>(null);
   const [receivedImage, setReceivedImage] = useState<string | null>(null);
   const lastSetupPublish = useRef<number>(0);
@@ -238,6 +240,13 @@ useEffect(() => {
             console.log("Subscribed to guider/detected_star");
           }
         });
+        client.subscribe('guider/camera_list', (err) => {
+          if (err) {
+            console.error("Failed to subscribe to guider/camera_list", err);
+          } else {
+            console.log("Subscribed to guider/camera_list");
+          }
+        });
         client.subscribe('guider/tracked_star', (err) => {
           if (err) {
             console.error("Failed to subscribe to guider/tracked_star", err);
@@ -353,6 +362,28 @@ useEffect(() => {
             }
           } catch (e) {
             console.error('Invalid JSON message:', e);
+          }
+        }
+        if (topic === 'guider/camera_list') {
+          try {
+            const data = JSON.parse(message.toString());
+            if (data.cameras && Array.isArray(data.cameras)) {
+              const options = data.cameras.map((camera: any, index: number) => ({
+                value: String(index),
+                label: camera.available
+                  ? `${camera.producer} ${camera.name}`.trim()
+                  : `Camera ${index} (Unavailable)`,
+                available: !!camera.available,
+              }));
+              setCameraListOptions(options);
+              if (data.selectedCameraId !== undefined && options[data.selectedCameraId]) {
+                setSelectedCameraId(String(data.selectedCameraId));
+              } else if (options.length > 0 && !options.some((opt) => opt.value === selectedCameraId)) {
+                setSelectedCameraId(options[0].value);
+              }
+            }
+          } catch (e) {
+            console.error('Invalid JSON message for camera_list:', e);
           }
         }
         if (topic === 'guider/image_info') {
@@ -1534,7 +1565,6 @@ const downloadImages = async (images = null, filename = "images.zip") => {
               </CardContent>
             </Card>
 
-            {/* Camera Configuration */}
             <Card className="bg-zinc-900 text-gray-400 border-gray-700 shadow-md">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">
@@ -1542,6 +1572,31 @@ const downloadImages = async (images = null, filename = "images.zip") => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Select Camera</Label>
+                  <select
+                    className="h-7 text-xs text-zinc-800 bg-gray-500 border-gray-600 rounded w-full"
+                    value={selectedCameraId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedCameraId(val);
+                      if (mqttClient?.connected) {
+                        const payload = JSON.stringify({ selectedCameraId: Number(val) });
+                        mqttClient.publish('guider/select_camera_id', payload);
+                      }
+                    }}
+                  >
+                    {cameraListOptions.length > 0 ? (
+                      cameraListOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="0">Waiting for camera list...</option>
+                    )}
+                  </select>
+                </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Image Type</Label>
                   <select

@@ -4,6 +4,13 @@
 #include <iostream>
 #include <algorithm> // for std::find
 #include <utility>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <iostream>
+#include <fcntl.h>
+#include <unistd.h>
+
 /*
     BGGR,
     RGBG,
@@ -126,19 +133,40 @@ int cameraControl::scanForCameras()
 {
     int ret_val = -1;
     m_scanedCameras.clear();
+
     /*Scan for SVBONY CAMERAS*/
     ret_val = SVB_ScanForCameras();
     /*Scan for ZWO CAMERAS*/
     ret_val = ZWO_ScanForCameras();
+    /*Scan for dummy cameras*/
+    ret_val = DUMMY_ScanForCameras();
+
+    std::cout << "Found cameras" << std::endl;
+    for (const auto &camera : m_scanedCameras)
+    {
+        std::cout << camera << std::endl;
+    }
 
     return ret_val;
 }
 
-int cameraControl::openFirstAvaible()
+const std::vector<cameraInfo> &cameraControl::getAvailableCameras()
 {
+    return m_scanedCameras;
+}
+
+/*Returns opened camera ID, -1 if no camera opened*/
+int cameraControl::openByID(int ID)
+{
+    if ((m_scanedCameras.size() - 1) < ID)
+    {
+        std::cerr << "Invalid camera ID(to big): " << ID << " Max Id: " << (m_scanedCameras.size() - 1) << std::endl;
+        return -1;
+    }
+
     if (m_scanedCameras.size() > 0)
     {
-        auto cam = m_scanedCameras[0];
+        auto cam = m_scanedCameras[ID];
         std::cout << "Opened Camera: " << cam << std::endl;
         if (cam.producer == "SVB")
         {
@@ -173,17 +201,71 @@ int cameraControl::openFirstAvaible()
             m_camera_opened = true;
             return 0;
         }
+        else if (cam.producer == "DUMMY")
+        {
+            m_current_camera = cam;
+            m_camera_opened = true;
+        }
 
         return 0;
     }
     else
     {
-        m_current_camera.producer = "DUMMY";
-        m_current_camera.cameraName = "DUMMY";
-        std::cerr << "Open camera failed: no cameras, dummy camera used \r\n"
-                  << std::endl;
+        std::cerr << "There are no aviable cameras" << std::endl;
         return -1;
     }
+}
+
+int cameraControl::closeCamera()
+{
+    const std::string camera_producer = m_current_camera.producer;
+    const int camera_id = m_current_camera.ID;
+    int ret_val = -1;
+
+    if (camera_producer == "ZWO")
+    {
+        auto ret = ASICloseCamera(camera_id);
+
+        if (ret != ASI_SUCCESS)
+        {
+            std::cerr << "Failed to close camera, producer " << "ZWO, ec" << ret << std::endl;
+            ret_val = -1;
+        }
+        else
+        {
+            ret_val = 0;
+        }
+        m_camera_opened = false;
+    }
+    else if (camera_producer == "SVB")
+    {
+        auto ret = SVBCloseCamera(camera_id);
+
+        if (ret != SVB_SUCCESS)
+        {
+            std::cerr << "Failed to close camera, producer " << "SVB, ec" << ret << std::endl;
+            ret_val = -1;
+        }
+        else
+        {
+            ret_val = 0;
+        }
+        m_camera_opened = false;
+    }
+    else if (camera_producer == "DUMMY")
+    {
+        m_camera_opened = false;
+    }
+    else
+    {
+        std::cerr << "Failed to close camera, unknown vendor" << std::endl;
+    }
+    return ret_val;
+}
+
+int cameraControl::openFirstAvaible()
+{
+    return openByID(0);
 }
 
 cameraInfo cameraControl::getCurrentCameraInfo()
@@ -294,6 +376,8 @@ void cameraControl::captureVideoThreadFunc()
             {
                 m_camera_opened = false;
                 m_stop_video_thread = true;
+                last_dummy_it = -1;
+                dummy_it = 1;
                 std::cerr << "Failed to read camera buffer" << std::endl;
             }
 
@@ -312,6 +396,7 @@ void cameraControl::captureVideoThreadFunc()
                 m_new_img_ready = true;
                 m_new_img_in_buffer = false;
                 m_last_send_time = steady_clock::now();
+                dummy_it++;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }
@@ -363,8 +448,29 @@ int cameraControl::scanForImage()
     }
     else if (m_current_camera.producer == "DUMMY")
     {
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_current_camera_setup.interval_ms));
+        if (dummy_it != last_dummy_it)
+        {
+            ImageInfo im_info = {0, 1280, 960, RAW16, NONE};
+            m_current_camera_setup.img_data_type = im_info.data_type;
+            m_current_camera_setup.ROI_x = std::pair<int, int>(0, 1280);
+            m_current_camera_setup.ROI_y = std::pair<int, int>(0, 960);
+            std::string base_dir = "/home/orangepi/Telescope_GuiderV2/CaptureAndShare/dummy_images";
+            std::string img_path = base_dir + "/image0" + std::to_string(dummy_it % 10) + ".raw";
+            int fd = open(img_path.c_str(), O_RDONLY);
+            if (fd == -1)
+            {
+                std::cout << "Failed to open file: " << img_path << std::endl;
+                return -1;
+            }
+            int size = 1280 * 960 * 2;
+            void *map = mmap(NULL, 1280 * 960 * 2, PROT_READ, MAP_PRIVATE, fd, 0);
+            close(fd);
+            m_image_buffer_size = size;
+            m_image_buffer = (uint8_t *)map;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            m_new_img_in_buffer = true;
+            last_dummy_it = dummy_it;
+        }
     }
     return 0;
 }
@@ -407,6 +513,9 @@ bool cameraControl::cameraAliveCheck()
             std::cout << "camera ok, EC" << rc << std::endl;
             return true;
         }
+    }
+    else if (m_current_camera.producer == "DUMMY")
+    {
     }
     else
     {
@@ -476,6 +585,11 @@ int cameraControl::startVideoCapture()
             return 0;
         }
     }
+    else if (m_current_camera.producer == "DUMMY")
+    {
+        std::cout << "started DUMMY video capture" << std::endl;
+        return 0;
+    }
     else
     {
         std::cerr << "Unknown camera producer, can't start video capture!" << std::endl;
@@ -524,6 +638,18 @@ int cameraControl::stopVideoCapture()
 }
 
 /********************SPECIFIC VENDORS HANDLER*********************** */
+
+int cameraControl::DUMMY_ScanForCameras()
+{
+    cameraInfo cam_info = {"DUMMY", "Dummy camera", 0, 1280, 960, UNKNOWN_PATT, {ImageDataType::RAW16, ImageDataType::RAW8}, {-1, -1}, {-1, -1}, true};
+    m_scanedCameras.push_back(cam_info);
+
+    return 0;
+}
+
+int cameraControl::DUMMY_applySetup(const cameraSetup &cam_setup)
+{
+}
 
 int cameraControl::SVB_ScanForCameras()
 {
@@ -665,7 +791,7 @@ int cameraControl::ZWO_ScanForCameras()
             }
         }
         ASICloseCamera(m_scanedCameras.back().ID);
-        std::cout << m_scanedCameras.back();
+        // std::cout << m_scanedCameras.back();
     }
     return 0;
 }

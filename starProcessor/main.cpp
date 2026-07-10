@@ -242,6 +242,10 @@ int main()
                 std::string mqtt_mess = oss.str();
                 mqtt_handler.publish("guider/detected_stars", mqtt_mess);
             }
+            else
+            {
+                mqtt_handler.publish("guider/detected_stars", "{\"stars\":[]}");
+            }
             std::cout << "New image recieved ... Mean brightness: " << im_mean[0] << "std:" << im_std[0] << " Exec time: " << std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << std::endl;
             last_ID = img_info->ID;
         }

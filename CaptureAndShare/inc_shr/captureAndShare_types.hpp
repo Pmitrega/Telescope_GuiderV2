@@ -21,7 +21,12 @@
 #define DETECTED_STARS_SHM "/detected_stars"
 #define DETECTED_STARS_SHM_FULL_PATH "/dev/shm" DETECTED_STARS_SHM
 
+#define CAMERA_LIST_SHM "/camera_list"
+#define CAMERA_LIST_SHM_FULL_PATH "/dev/shm" CAMERA_LIST_SHM
+
 #define MOTOR_SPEED_DONT_MODIFY INFINITY
+
+#define MAX_NUMER_OF_CAMERAS 5
 
 enum ImageDataType
 {
@@ -33,18 +38,15 @@ enum ImageDataType
     UNKNOWN_DATA_TYPE
 };
 
-
-
 enum ImageBayerPattern
 {
     NONE = 0,
-    BGGR, 
+    BGGR,
     RGBG,
     GRBG,
     RGGB,
     UNKNOWN_PATT
 };
-
 
 struct ImageInfo
 {
@@ -59,7 +61,6 @@ struct ImageInfo
     char date[24];
 };
 
-
 struct SHM_cameraControls
 {
     bool updated;
@@ -73,7 +74,8 @@ struct SHM_cameraControls
     int roi_y_end;
 };
 
-enum videoSource{
+enum videoSource
+{
     CAMERA_0 = 0,
     CAMERA_1,
     CAMERA_2,
@@ -87,9 +89,10 @@ enum videoSource{
     TEST_STREAM = 255
 };
 
-struct cameraSetup{
-    std::pair<int,int> ROI_x = std::make_pair<int,int>(-1,-1);
-    std::pair<int,int> ROI_y = std::make_pair<int,int>(-1,-1);
+struct cameraSetup
+{
+    std::pair<int, int> ROI_x = std::make_pair<int, int>(-1, -1);
+    std::pair<int, int> ROI_y = std::make_pair<int, int>(-1, -1);
     ImageDataType img_data_type = UNKNOWN_DATA_TYPE;
     int gain = -1;
     int exposure_us = -1;
@@ -97,7 +100,7 @@ struct cameraSetup{
     float temperature;
 };
 
-struct SHM_cameraInfo
+typedef struct SHM_cameraInfo
 {
     char procuder[32];
     char camera_name[32];
@@ -111,8 +114,15 @@ struct SHM_cameraInfo
     bool mono;
     enum ImageBayerPattern patt;
     bool ready = false;
-};
+} SHM_cameraInfo;
 
+struct SHM_cameraList
+{
+    SHM_cameraInfo cameras[5];
+    bool available[5];
+    int selectedCameraId;
+    bool ready;
+};
 
 struct Misc_Info
 {
@@ -121,61 +131,82 @@ struct Misc_Info
     int final_exposure_time = -1;
 };
 
-
-typedef struct Star{
+typedef struct Star
+{
     float x_center;
     float y_center;
     float brighteness;
-}Star;
+} Star;
 
 typedef struct SHM_DetectedStarsInfo
 {
     bool updated;
     int detected_stars;
     Star stars[64];
-}SHM_DetectedStarsInfo;
+} SHM_DetectedStarsInfo;
 
-typedef struct SHM_MotorControl{
+typedef struct SHM_MotorControl
+{
     bool updated;
     float ra_speed;
     float dec_speed;
-}SHM_MotorControl;
-
+} SHM_MotorControl;
 
 constexpr int ImageDataTypeToBytes(ImageDataType type)
 {
     switch (type)
     {
-        case RGB24: return 3;
-        case RAW16: return 2;
-        case RAW8:  return 1;
-        case Y8:  return 1;
-        case Y16:  return 2;
-        default:    return 0; // or throw/handle invalid enum
+    case RGB24:
+        return 3;
+    case RAW16:
+        return 2;
+    case RAW8:
+        return 1;
+    case Y8:
+        return 1;
+    case Y16:
+        return 2;
+    default:
+        return 0; // or throw/handle invalid enum
     }
 }
 
 // Optional: readable strings
-constexpr char* BayerPatternToStr(ImageBayerPattern pattern) {
-    switch (pattern) {
-        case BGGR: return (char*)"BGGR";
-        case RGBG: return (char*)"RGBG";
-        case GRBG: return (char*)"GRBG";
-        case RGGB: return (char*)"RGGB";
-        case NONE: return (char*)"None";
-        default:   return (char*)"Unknown";
+constexpr char *BayerPatternToStr(ImageBayerPattern pattern)
+{
+    switch (pattern)
+    {
+    case BGGR:
+        return (char *)"BGGR";
+    case RGBG:
+        return (char *)"RGBG";
+    case GRBG:
+        return (char *)"GRBG";
+    case RGGB:
+        return (char *)"RGGB";
+    case NONE:
+        return (char *)"None";
+    default:
+        return (char *)"Unknown";
     }
 }
 
-
-constexpr char* ImageDataTypeToStr(ImageDataType type) {
-    switch (type) {
-        case RGB24: return (char*)"RGB24";
-        case RAW16: return (char*)"RAW16";
-        case RAW8:  return (char*)"RAW8";
-        case Y8:    return (char*)"Y8";
-        case Y16:   return (char*)"Y16";
-        default:    return (char*)"UNKNOWN";
+constexpr char *ImageDataTypeToStr(ImageDataType type)
+{
+    switch (type)
+    {
+    case RGB24:
+        return (char *)"RGB24";
+    case RAW16:
+        return (char *)"RAW16";
+    case RAW8:
+        return (char *)"RAW8";
+    case Y8:
+        return (char *)"Y8";
+    case Y16:
+        return (char *)"Y16";
+    default:
+        return (char *)"UNKNOWN";
     }
 }
 
